@@ -1,0 +1,19 @@
+seq,feature,featureTag,WALS,Grambank,Noun,Verb,Adjective,Note
+1,WordOrder,wordOrder,81A,,Relevant,Relevant,Relevant,
+2,The Past Tense,tense,66A,GB083,,Relevant,,
+3,The Future Tense,tense,67A,GB084,,Relevant,,
+4,Definite Articles,article,37A,GB020,Relevant,,,
+5,Indefinite Articles,article,38A,,Relevant,,,
+6,Number of Cases,numCase,49A,GB070,Relevant,,,"Inserted by web search: Cantonese, Czech"
+7,Position of Case Affixes,posCaseAffix,51A,GB070,Relevant,,,
+8,Coding of Nominal Plurality,posNomPlural,33A,,Relevant,,,
+9,Occurrence of Nominal Plurality,nomPlural,34A,GB044,Relevant,,,"Inserted by web search: Cantonese, Persian"
+10,Expression of Pronominal Subjects,proDrop,101A,GB522,Relevant,Relevant,,Inserted by web search: Cantonese
+11,Numeral Classifiers,classifier,55A,GB057,Relevant,,,"Inserted by web search: Cantonese, Spanish"
+12,Order of Adjective and Noun,orderAdjN,87A,,Relevant,,Relevant,
+13,Order of Adposition and Noun Phrase,orderAdposN,85A,,Relevant,,,
+14,Verbal Person Marking,vPerson,102A,GB091-094,,Relevant,,Inserted by web search: Cantonese
+15,Position of Tense-Aspect Affixes,posTenseAspectAffix,69A,,,Relevant,,Inserted by web search: Catalan
+16,Suppletion According to Tense and Aspect,supplTenseAspect,79A,GB110,,Relevant,,
+17,comparative degree marker,compDeg,121A,GB275,,,Relevant,"Inserted by web search: Cantonese, Spanish, Persian"
+18,Adjectivs act like verbs in predicative position,predicativeAdj,118A,GB068,,,Relevant,"Inserted by web search: Cantonese, German"
