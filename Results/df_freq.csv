@@ -1,0 +1,271 @@
+"language","lexical_category","freq_mean","bias","bias_type","predicativeAdj"
+"Cantonese","Nouns",-8.94100250377259,0.0122027225371242,"Noun bias",NA
+"Cantonese","Verbs",-7.04260016828268,0.0122027225371242,"Noun bias",NA
+"Cantonese","Adjectives",-7.93718863570971,0.0122027225371242,"Noun bias",NA
+"Croatian","Nouns",-9.52097374555193,0.0677735885497117,"Noun bias",NA
+"Croatian","Verbs",-8.27255993264437,0.0677735885497117,"Noun bias",NA
+"Croatian","Adjectives",-8.72065401540238,0.0677735885497117,"Noun bias",NA
+"Czech","Nouns",-8.99631488375131,0.049816233428637,"Noun bias",NA
+"Czech","Verbs",-7.88558071976391,0.049816233428637,"Noun bias",NA
+"Czech","Adjectives",-8.1465228629272,0.049816233428637,"Noun bias",NA
+"Danish","Nouns",-9.33034170697847,0.0756365002702239,"Noun bias",NA
+"Danish","Verbs",-7.99616243848178,0.0756365002702239,"Noun bias",NA
+"Danish","Adjectives",-8.90307587869517,0.0756365002702239,"Noun bias",NA
+"Dutch","Nouns",-9.59073808541283,0.0590688510922491,"Noun bias",NA
+"Dutch","Verbs",-8.58749004191117,0.0590688510922491,"Noun bias",NA
+"Dutch","Adjectives",-8.12891668046283,0.0590688510922491,"Noun bias",NA
+"English (American)","Nouns",-9.26336516537037,0.0720087236119297,"Noun bias",NA
+"English (American)","Verbs",-7.92400196313019,0.0720087236119297,"Noun bias",NA
+"English (American)","Adjectives",-8.40166086423604,0.0720087236119297,"Noun bias",NA
+"English (Australian)","Nouns",-7.9101880106034,0.0391549057009706,"Noun bias",NA
+"English (Australian)","Verbs",-6.47233635035833,0.0391549057009706,"Noun bias",NA
+"English (Australian)","Adjectives",-7.00025221161278,0.0391549057009706,"Noun bias",NA
+"English (British)","Nouns",-8.25393148149216,0.0695217879800478,"Noun bias",NA
+"English (British)","Verbs",-6.95258018342958,0.0695217879800478,"Noun bias",NA
+"English (British)","Adjectives",-7.63508324435698,0.0695217879800478,"Noun bias",NA
+"English (Irish)","Nouns",-8.90323091637603,0.0530130032633036,"Noun bias",NA
+"English (Irish)","Verbs",-7.55864347672639,0.0530130032633036,"Noun bias",NA
+"English (Irish)","Adjectives",-8.26756959828872,0.0530130032633036,"Noun bias",NA
+"Estonian","Nouns",-9.03016756496009,0.0374834620629431,"Noun bias",NA
+"Estonian","Verbs",-7.41059316581964,0.0374834620629431,"Noun bias",NA
+"Estonian","Adjectives",-8.2396507023004,0.0374834620629431,"Noun bias",NA
+"Finnish","Nouns",-9.36519144721979,0.0724608483002474,"Noun bias",NA
+"Finnish","Verbs",-8.66481492124656,0.0724608483002474,"Noun bias",NA
+"Finnish","Adjectives",-8.9358678229969,0.0724608483002474,"Noun bias",NA
+"French (French)","Nouns",-9.60985382616899,0.0395829776224584,"Noun bias",NA
+"French (French)","Verbs",-8.6315956661032,0.0395829776224584,"Noun bias",NA
+"French (French)","Adjectives",-8.12030482227608,0.0395829776224584,"Noun bias",NA
+"French (Quebecois)","Nouns",-9.43831685744544,0.0544046837455354,"Noun bias",NA
+"French (Quebecois)","Verbs",-8.27077084702207,0.0544046837455354,"Noun bias",NA
+"French (Quebecois)","Adjectives",-8.02952844189188,0.0544046837455354,"Noun bias",NA
+"German","Nouns",-9.45610125323417,0.0908293031752782,"Noun bias",NA
+"German","Verbs",-8.5326926556142,0.0908293031752782,"Noun bias",NA
+"German","Adjectives",-8.38634121532431,0.0908293031752782,"Noun bias",NA
+"Hebrew","Nouns",-8.80632442870582,0.0498147820222305,"Noun bias",NA
+"Hebrew","Verbs",-8.08043188157653,0.0498147820222305,"Noun bias",NA
+"Hebrew","Adjectives",-8.17772995291132,0.0498147820222305,"Noun bias",NA
+"Hungarian","Nouns",-9.11203791005088,0.0653440689927309,"Noun bias",NA
+"Hungarian","Verbs",-8.26825901606222,0.0653440689927309,"Noun bias",NA
+"Hungarian","Adjectives",-8.4433292134206,0.0653440689927309,"Noun bias",NA
+"Irish","Nouns",-9.3550668003099,0.0376730732886469,"Noun bias",NA
+"Irish","Verbs",-8.97667879168647,0.0376730732886469,"Noun bias",NA
+"Irish","Adjectives",-8.91529471401037,0.0376730732886469,"Noun bias",NA
+"Italian","Nouns",-9.49123964660385,0.0572318141280914,"Noun bias",NA
+"Italian","Verbs",-8.34684791500885,0.0572318141280914,"Noun bias",NA
+"Italian","Adjectives",-9.08807392497651,0.0572318141280914,"Noun bias",NA
+"Japanese","Nouns",-8.92946538825788,0.0346767296159057,"Noun bias",NA
+"Japanese","Verbs",-8.2473462851388,0.0346767296159057,"Noun bias",NA
+"Japanese","Adjectives",-8.00893132962448,0.0346767296159057,"Noun bias",NA
+"Korean","Nouns",-7.97857563589307,0.0887826487548027,"Noun bias",NA
+"Korean","Verbs",-7.8468196821696,0.0887826487548027,"Noun bias",NA
+"Korean","Adjectives",-7.92724530790561,0.0887826487548027,"Noun bias",NA
+"Mandarin (Beijing)","Nouns",-9.53875042786472,0.0187389137159695,"Noun bias",NA
+"Mandarin (Beijing)","Verbs",-7.83854913964428,0.0187389137159695,"Noun bias",NA
+"Mandarin (Beijing)","Adjectives",-8.13012292905194,0.0187389137159695,"Noun bias",NA
+"Mandarin (Taiwanese)","Nouns",-8.95004602714827,0.0194992074530767,"Noun bias",NA
+"Mandarin (Taiwanese)","Verbs",-6.7181372255267,0.0194992074530767,"Noun bias",NA
+"Mandarin (Taiwanese)","Adjectives",-9.95876434431354,0.0194992074530767,"Noun bias",NA
+"Portuguese (European)","Nouns",-9.22744201970083,0.034830547432831,"Noun bias",NA
+"Portuguese (European)","Verbs",-7.05297757787886,0.034830547432831,"Noun bias",NA
+"Portuguese (European)","Adjectives",-8.70577422704157,0.034830547432831,"Noun bias",NA
+"Russian","Nouns",-8.49691545388111,0.0575080595453684,"Noun bias",NA
+"Russian","Verbs",-7.67001636885391,0.0575080595453684,"Noun bias",NA
+"Russian","Adjectives",-8.37176019465353,0.0575080595453684,"Noun bias",NA
+"Spanish (Argentinian)","Nouns",-9.68016169101823,0.0411775234274854,"Noun bias",NA
+"Spanish (Argentinian)","Verbs",-7.94319913617741,0.0411775234274854,"Noun bias",NA
+"Spanish (Argentinian)","Adjectives",-8.7599343528213,0.0411775234274854,"Noun bias",NA
+"Spanish (European)","Nouns",-9.76579797946652,0.0458187413979283,"Noun bias",NA
+"Spanish (European)","Verbs",-7.64243312791794,0.0458187413979283,"Noun bias",NA
+"Spanish (European)","Adjectives",-8.78173609391826,0.0458187413979283,"Noun bias",NA
+"Spanish (Mexican)","Nouns",-9.69608894757348,0.0416870387329962,"Noun bias",NA
+"Spanish (Mexican)","Verbs",-7.87468741445591,0.0416870387329962,"Noun bias",NA
+"Spanish (Mexican)","Adjectives",-8.83679929665918,0.0416870387329962,"Noun bias",NA
+"Spanish (Peruvian)","Nouns",-9.47749201093177,0.0166435651858959,"Noun bias",NA
+"Spanish (Peruvian)","Verbs",-7.36515115800395,0.0166435651858959,"Noun bias",NA
+"Spanish (Peruvian)","Adjectives",-8.63982956732252,0.0166435651858959,"Noun bias",NA
+"Swedish","Nouns",-9.82552021421538,0.0543534690530459,"Noun bias",NA
+"Swedish","Verbs",-8.72255530275024,0.0543534690530459,"Noun bias",NA
+"Swedish","Adjectives",-9.10516542525408,0.0543534690530459,"Noun bias",NA
+"Turkish","Nouns",-8.56825707552044,0.031642098163999,"Noun bias",NA
+"Turkish","Verbs",-7.38541563377901,0.031642098163999,"Noun bias",NA
+"Turkish","Adjectives",-8.14368064988862,0.031642098163999,"Noun bias",NA
+"Cantonese","Nouns",-8.94100250377259,0.0603068754663766,"Verb bias",NA
+"Cantonese","Verbs",-7.04260016828268,0.0603068754663766,"Verb bias",NA
+"Cantonese","Adjectives",-7.93718863570971,0.0603068754663766,"Verb bias",NA
+"Croatian","Nouns",-9.52097374555193,0.0135633202536304,"Verb bias",NA
+"Croatian","Verbs",-8.27255993264437,0.0135633202536304,"Verb bias",NA
+"Croatian","Adjectives",-8.72065401540238,0.0135633202536304,"Verb bias",NA
+"Czech","Nouns",-8.99631488375131,-0.00940818137660292,"Verb bias",NA
+"Czech","Verbs",-7.88558071976391,-0.00940818137660292,"Verb bias",NA
+"Czech","Adjectives",-8.1465228629272,-0.00940818137660292,"Verb bias",NA
+"Danish","Nouns",-9.33034170697847,-0.00376745188982181,"Verb bias",NA
+"Danish","Verbs",-7.99616243848178,-0.00376745188982181,"Verb bias",NA
+"Danish","Adjectives",-8.90307587869517,-0.00376745188982181,"Verb bias",NA
+"Dutch","Nouns",-9.59073808541283,-0.0188442070979111,"Verb bias",NA
+"Dutch","Verbs",-8.58749004191117,-0.0188442070979111,"Verb bias",NA
+"Dutch","Adjectives",-8.12891668046283,-0.0188442070979111,"Verb bias",NA
+"English (American)","Nouns",-9.26336516537037,-0.0311648434337394,"Verb bias",NA
+"English (American)","Verbs",-7.92400196313019,-0.0311648434337394,"Verb bias",NA
+"English (American)","Adjectives",-8.40166086423604,-0.0311648434337394,"Verb bias",NA
+"English (Australian)","Nouns",-7.9101880106034,-0.0572672951859374,"Verb bias",NA
+"English (Australian)","Verbs",-6.47233635035833,-0.0572672951859374,"Verb bias",NA
+"English (Australian)","Adjectives",-7.00025221161278,-0.0572672951859374,"Verb bias",NA
+"English (British)","Nouns",-8.25393148149216,-0.0742749792512111,"Verb bias",NA
+"English (British)","Verbs",-6.95258018342958,-0.0742749792512111,"Verb bias",NA
+"English (British)","Adjectives",-7.63508324435698,-0.0742749792512111,"Verb bias",NA
+"English (Irish)","Nouns",-8.90323091637603,0.0118515059847249,"Verb bias",NA
+"English (Irish)","Verbs",-7.55864347672639,0.0118515059847249,"Verb bias",NA
+"English (Irish)","Adjectives",-8.26756959828872,0.0118515059847249,"Verb bias",NA
+"Estonian","Nouns",-9.03016756496009,-0.00756414348407079,"Verb bias",NA
+"Estonian","Verbs",-7.41059316581964,-0.00756414348407079,"Verb bias",NA
+"Estonian","Adjectives",-8.2396507023004,-0.00756414348407079,"Verb bias",NA
+"Finnish","Nouns",-9.36519144721979,-0.0239390419513887,"Verb bias",NA
+"Finnish","Verbs",-8.66481492124656,-0.0239390419513887,"Verb bias",NA
+"Finnish","Adjectives",-8.9358678229969,-0.0239390419513887,"Verb bias",NA
+"French (French)","Nouns",-9.60985382616899,-0.00959342969903289,"Verb bias",NA
+"French (French)","Verbs",-8.6315956661032,-0.00959342969903289,"Verb bias",NA
+"French (French)","Adjectives",-8.12030482227608,-0.00959342969903289,"Verb bias",NA
+"French (Quebecois)","Nouns",-9.43831685744544,-0.0348806241668641,"Verb bias",NA
+"French (Quebecois)","Verbs",-8.27077084702207,-0.0348806241668641,"Verb bias",NA
+"French (Quebecois)","Adjectives",-8.02952844189188,-0.0348806241668641,"Verb bias",NA
+"German","Nouns",-9.45610125323417,-0.0469219031339344,"Verb bias",NA
+"German","Verbs",-8.5326926556142,-0.0469219031339344,"Verb bias",NA
+"German","Adjectives",-8.38634121532431,-0.0469219031339344,"Verb bias",NA
+"Hebrew","Nouns",-8.80632442870582,-0.0726393528442016,"Verb bias",NA
+"Hebrew","Verbs",-8.08043188157653,-0.0726393528442016,"Verb bias",NA
+"Hebrew","Adjectives",-8.17772995291132,-0.0726393528442016,"Verb bias",NA
+"Hungarian","Nouns",-9.11203791005088,-0.0308373898577725,"Verb bias",NA
+"Hungarian","Verbs",-8.26825901606222,-0.0308373898577725,"Verb bias",NA
+"Hungarian","Adjectives",-8.4433292134206,-0.0308373898577725,"Verb bias",NA
+"Irish","Nouns",-9.3550668003099,0.00257614772120757,"Verb bias",NA
+"Irish","Verbs",-8.97667879168647,0.00257614772120757,"Verb bias",NA
+"Irish","Adjectives",-8.91529471401037,0.00257614772120757,"Verb bias",NA
+"Italian","Nouns",-9.49123964660385,-0.0358889695367309,"Verb bias",NA
+"Italian","Verbs",-8.34684791500885,-0.0358889695367309,"Verb bias",NA
+"Italian","Adjectives",-9.08807392497651,-0.0358889695367309,"Verb bias",NA
+"Japanese","Nouns",-8.92946538825788,-0.00355848240553798,"Verb bias",NA
+"Japanese","Verbs",-8.2473462851388,-0.00355848240553798,"Verb bias",NA
+"Japanese","Adjectives",-8.00893132962448,-0.00355848240553798,"Verb bias",NA
+"Korean","Nouns",-7.97857563589307,-0.0852295265971345,"Verb bias",NA
+"Korean","Verbs",-7.8468196821696,-0.0852295265971345,"Verb bias",NA
+"Korean","Adjectives",-7.92724530790561,-0.0852295265971345,"Verb bias",NA
+"Mandarin (Beijing)","Nouns",-9.53875042786472,0.0215659297458613,"Verb bias",NA
+"Mandarin (Beijing)","Verbs",-7.83854913964428,0.0215659297458613,"Verb bias",NA
+"Mandarin (Beijing)","Adjectives",-8.13012292905194,0.0215659297458613,"Verb bias",NA
+"Mandarin (Taiwanese)","Nouns",-8.95004602714827,0.0476796060259543,"Verb bias",NA
+"Mandarin (Taiwanese)","Verbs",-6.7181372255267,0.0476796060259543,"Verb bias",NA
+"Mandarin (Taiwanese)","Adjectives",-9.95876434431354,0.0476796060259543,"Verb bias",NA
+"Portuguese (European)","Nouns",-9.22744201970083,-0.00373668254408248,"Verb bias",NA
+"Portuguese (European)","Verbs",-7.05297757787886,-0.00373668254408248,"Verb bias",NA
+"Portuguese (European)","Adjectives",-8.70577422704157,-0.00373668254408248,"Verb bias",NA
+"Russian","Nouns",-8.49691545388111,0.0184716493952648,"Verb bias",NA
+"Russian","Verbs",-7.67001636885391,0.0184716493952648,"Verb bias",NA
+"Russian","Adjectives",-8.37176019465353,0.0184716493952648,"Verb bias",NA
+"Spanish (Argentinian)","Nouns",-9.68016169101823,0.0053619507663831,"Verb bias",NA
+"Spanish (Argentinian)","Verbs",-7.94319913617741,0.0053619507663831,"Verb bias",NA
+"Spanish (Argentinian)","Adjectives",-8.7599343528213,0.0053619507663831,"Verb bias",NA
+"Spanish (European)","Nouns",-9.76579797946652,0.00360080080175479,"Verb bias",NA
+"Spanish (European)","Verbs",-7.64243312791794,0.00360080080175479,"Verb bias",NA
+"Spanish (European)","Adjectives",-8.78173609391826,0.00360080080175479,"Verb bias",NA
+"Spanish (Mexican)","Nouns",-9.69608894757348,-0.00513750275566295,"Verb bias",NA
+"Spanish (Mexican)","Verbs",-7.87468741445591,-0.00513750275566295,"Verb bias",NA
+"Spanish (Mexican)","Adjectives",-8.83679929665918,-0.00513750275566295,"Verb bias",NA
+"Spanish (Peruvian)","Nouns",-9.47749201093177,0.00611708635848855,"Verb bias",NA
+"Spanish (Peruvian)","Verbs",-7.36515115800395,0.00611708635848855,"Verb bias",NA
+"Spanish (Peruvian)","Adjectives",-8.63982956732252,0.00611708635848855,"Verb bias",NA
+"Swedish","Nouns",-9.82552021421538,0.0372205919652607,"Verb bias",NA
+"Swedish","Verbs",-8.72255530275024,0.0372205919652607,"Verb bias",NA
+"Swedish","Adjectives",-9.10516542525408,0.0372205919652607,"Verb bias",NA
+"Turkish","Nouns",-8.56825707552044,0.0350262328176163,"Verb bias",NA
+"Turkish","Verbs",-7.38541563377901,0.0350262328176163,"Verb bias",NA
+"Turkish","Adjectives",-8.14368064988862,0.0350262328176163,"Verb bias",NA
+"Cantonese","Nouns",-8.94100250377259,-0.012623125996661,"Adjective bias","present"
+"Cantonese","Verbs",-7.04260016828268,-0.012623125996661,"Adjective bias","present"
+"Cantonese","Adjectives",-7.93718863570971,-0.012623125996661,"Adjective bias","present"
+"Croatian","Nouns",-9.52097374555193,-0.0449453900657672,"Adjective bias","absent"
+"Croatian","Verbs",-8.27255993264437,-0.0449453900657672,"Adjective bias","absent"
+"Croatian","Adjectives",-8.72065401540238,-0.0449453900657672,"Adjective bias","absent"
+"Czech","Nouns",-8.99631488375131,-0.0603706631349941,"Adjective bias","absent"
+"Czech","Verbs",-7.88558071976391,-0.0603706631349941,"Adjective bias","absent"
+"Czech","Adjectives",-8.1465228629272,-0.0603706631349941,"Adjective bias","absent"
+"Danish","Nouns",-9.33034170697847,-0.050910268051415,"Adjective bias","absent"
+"Danish","Verbs",-7.99616243848178,-0.050910268051415,"Adjective bias","absent"
+"Danish","Adjectives",-8.90307587869517,-0.050910268051415,"Adjective bias","absent"
+"Dutch","Nouns",-9.59073808541283,-0.0121867478717385,"Adjective bias","absent"
+"Dutch","Verbs",-8.58749004191117,-0.0121867478717385,"Adjective bias","absent"
+"Dutch","Adjectives",-8.12891668046283,-0.0121867478717385,"Adjective bias","absent"
+"English (American)","Nouns",-9.26336516537037,-0.021863723961778,"Adjective bias","absent"
+"English (American)","Verbs",-7.92400196313019,-0.021863723961778,"Adjective bias","absent"
+"English (American)","Adjectives",-8.40166086423604,-0.021863723961778,"Adjective bias","absent"
+"English (Australian)","Nouns",-7.9101880106034,-0.0828158482163057,"Adjective bias","absent"
+"English (Australian)","Verbs",-6.47233635035833,-0.0828158482163057,"Adjective bias","absent"
+"English (Australian)","Adjectives",-7.00025221161278,-0.0828158482163057,"Adjective bias","absent"
+"English (British)","Nouns",-8.25393148149216,-0.0801167172294142,"Adjective bias","absent"
+"English (British)","Verbs",-6.95258018342958,-0.0801167172294142,"Adjective bias","absent"
+"English (British)","Adjectives",-7.63508324435698,-0.0801167172294142,"Adjective bias","absent"
+"English (Irish)","Nouns",-8.90323091637603,-0.0529905847066533,"Adjective bias","absent"
+"English (Irish)","Verbs",-7.55864347672639,-0.0529905847066533,"Adjective bias","absent"
+"English (Irish)","Adjectives",-8.26756959828872,-0.0529905847066533,"Adjective bias","absent"
+"Estonian","Nouns",-9.03016756496009,-0.0818711417532101,"Adjective bias","absent"
+"Estonian","Verbs",-7.41059316581964,-0.0818711417532101,"Adjective bias","absent"
+"Estonian","Adjectives",-8.2396507023004,-0.0818711417532101,"Adjective bias","absent"
+"Finnish","Nouns",-9.36519144721979,-0.122726212931389,"Adjective bias","absent"
+"Finnish","Verbs",-8.66481492124656,-0.122726212931389,"Adjective bias","absent"
+"Finnish","Adjectives",-8.9358678229969,-0.122726212931389,"Adjective bias","absent"
+"French (French)","Nouns",-9.60985382616899,-0.025772257490057,"Adjective bias","absent"
+"French (French)","Verbs",-8.6315956661032,-0.025772257490057,"Adjective bias","absent"
+"French (French)","Adjectives",-8.12030482227608,-0.025772257490057,"Adjective bias","absent"
+"French (Quebecois)","Nouns",-9.43831685744544,-0.00590731869460215,"Adjective bias","absent"
+"French (Quebecois)","Verbs",-8.27077084702207,-0.00590731869460215,"Adjective bias","absent"
+"French (Quebecois)","Adjectives",-8.02952844189188,-0.00590731869460215,"Adjective bias","absent"
+"German","Nouns",-9.45610125323417,-0.0706282772696873,"Adjective bias","absent"
+"German","Verbs",-8.5326926556142,-0.0706282772696873,"Adjective bias","absent"
+"German","Adjectives",-8.38634121532431,-0.0706282772696873,"Adjective bias","absent"
+"Hebrew","Nouns",-8.80632442870582,-0.105588391554615,"Adjective bias","absent"
+"Hebrew","Verbs",-8.08043188157653,-0.105588391554615,"Adjective bias","absent"
+"Hebrew","Adjectives",-8.17772995291132,-0.105588391554615,"Adjective bias","absent"
+"Hungarian","Nouns",-9.11203791005088,-0.0651313032828918,"Adjective bias","absent"
+"Hungarian","Verbs",-8.26825901606222,-0.0651313032828918,"Adjective bias","absent"
+"Hungarian","Adjectives",-8.4433292134206,-0.0651313032828918,"Adjective bias","absent"
+"Irish","Nouns",-9.3550668003099,0.0093427839672673,"Adjective bias","absent"
+"Irish","Verbs",-8.97667879168647,0.0093427839672673,"Adjective bias","absent"
+"Irish","Adjectives",-8.91529471401037,0.0093427839672673,"Adjective bias","absent"
+"Italian","Nouns",-9.49123964660385,-0.0711170534514564,"Adjective bias","absent"
+"Italian","Verbs",-8.34684791500885,-0.0711170534514564,"Adjective bias","absent"
+"Italian","Adjectives",-9.08807392497651,-0.0711170534514564,"Adjective bias","absent"
+"Japanese","Nouns",-8.92946538825788,0.0071470535147371,"Adjective bias","present"
+"Japanese","Verbs",-8.2473462851388,0.0071470535147371,"Adjective bias","present"
+"Japanese","Adjectives",-8.00893132962448,0.0071470535147371,"Adjective bias","present"
+"Korean","Nouns",-7.97857563589307,-0.0497914544658972,"Adjective bias","present"
+"Korean","Verbs",-7.8468196821696,-0.0497914544658972,"Adjective bias","present"
+"Korean","Adjectives",-7.92724530790561,-0.0497914544658972,"Adjective bias","present"
+"Mandarin (Beijing)","Nouns",-9.53875042786472,0.00608669469346437,"Adjective bias","present"
+"Mandarin (Beijing)","Verbs",-7.83854913964428,0.00608669469346437,"Adjective bias","present"
+"Mandarin (Beijing)","Adjectives",-8.13012292905194,0.00608669469346437,"Adjective bias","present"
+"Mandarin (Taiwanese)","Nouns",-8.95004602714827,-0.0547924153407705,"Adjective bias","present"
+"Mandarin (Taiwanese)","Verbs",-6.7181372255267,-0.0547924153407705,"Adjective bias","present"
+"Mandarin (Taiwanese)","Adjectives",-9.95876434431354,-0.0547924153407705,"Adjective bias","present"
+"Portuguese (European)","Nouns",-9.22744201970083,-0.0553126835840577,"Adjective bias","absent"
+"Portuguese (European)","Verbs",-7.05297757787886,-0.0553126835840577,"Adjective bias","absent"
+"Portuguese (European)","Adjectives",-8.70577422704157,-0.0553126835840577,"Adjective bias","absent"
+"Russian","Nouns",-8.49691545388111,-0.086933415909907,"Adjective bias","absent"
+"Russian","Verbs",-7.67001636885391,-0.086933415909907,"Adjective bias","absent"
+"Russian","Adjectives",-8.37176019465353,-0.086933415909907,"Adjective bias","absent"
+"Spanish (Argentinian)","Nouns",-9.68016169101823,-0.0614128225388457,"Adjective bias","absent"
+"Spanish (Argentinian)","Verbs",-7.94319913617741,-0.0614128225388457,"Adjective bias","absent"
+"Spanish (Argentinian)","Adjectives",-8.7599343528213,-0.0614128225388457,"Adjective bias","absent"
+"Spanish (European)","Nouns",-9.76579797946652,0.00121573500080563,"Adjective bias","absent"
+"Spanish (European)","Verbs",-7.64243312791794,0.00121573500080563,"Adjective bias","absent"
+"Spanish (European)","Adjectives",-8.78173609391826,0.00121573500080563,"Adjective bias","absent"
+"Spanish (Mexican)","Nouns",-9.69608894757348,-0.101496654581367,"Adjective bias","absent"
+"Spanish (Mexican)","Verbs",-7.87468741445591,-0.101496654581367,"Adjective bias","absent"
+"Spanish (Mexican)","Adjectives",-8.83679929665918,-0.101496654581367,"Adjective bias","absent"
+"Spanish (Peruvian)","Nouns",-9.47749201093177,-0.0375067016397973,"Adjective bias","absent"
+"Spanish (Peruvian)","Verbs",-7.36515115800395,-0.0375067016397973,"Adjective bias","absent"
+"Spanish (Peruvian)","Adjectives",-8.63982956732252,-0.0375067016397973,"Adjective bias","absent"
+"Swedish","Nouns",-9.82552021421538,-0.0887702934030356,"Adjective bias","absent"
+"Swedish","Verbs",-8.72255530275024,-0.0887702934030356,"Adjective bias","absent"
+"Swedish","Adjectives",-9.10516542525408,-0.0887702934030356,"Adjective bias","absent"
+"Turkish","Nouns",-8.56825707552044,-0.0781545504623752,"Adjective bias","present"
+"Turkish","Verbs",-7.38541563377901,-0.0781545504623752,"Adjective bias","present"
+"Turkish","Adjectives",-8.14368064988862,-0.0781545504623752,"Adjective bias","present"
