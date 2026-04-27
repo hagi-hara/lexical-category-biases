@@ -1,0 +1,582 @@
+---
+title: "PlotBiases"
+output: html_document
+date: "2026-01-20"
+---
+
+
+```{r}
+library(here)
+library(tidyverse)
+library(tidytext)
+library(ggrepel)
+library(car)
+library(GGally)
+```
+
+
+# Preparation
+
+```{r}
+bias_raw <- readr::read_csv(here("Data", "bias_WS_Ref_TotalVocab_2025Jun18.csv"), show_col_types = FALSE)
+feat_raw <- readr::read_csv(here("Data", "LinguisticFeatures.csv"), show_col_types = FALSE)
+
+bias <- bias_raw %>% mutate(
+  language = str_squish(language),
+  form     = str_squish(form),
+  lexical_class = str_squish(lexical_class),
+  measure  = str_squish(measure))
+feat <- feat_raw %>% mutate(language = str_squish(language))
+
+langs_in_feat <- feat %>% distinct(language, Family2, predicativeAdj)
+
+bias_ws <- bias %>% filter(form == "WS") %>%
+  inner_join(langs_in_feat, by = "language") %>% 
+  subset(lexical_class != "Function Words")
+
+# Check
+bias_ws %>% count(lexical_class, measure) %>%
+  arrange(desc(n)) %>%
+  print(n = Inf)
+
+bias_ws %>% count(language, lexical_class) %>%
+  filter(n > 1)
+```
+
+
+```{r}
+cult_raw <- readr::read_csv(here("Data", "CulturalFeatures.csv"), show_col_types = FALSE)
+
+cult_num <- cult_raw %>% select(where(is.numeric)) %>%
+  select(-any_of(c("WS", "Seq")))
+
+GGally::ggpairs(cult_num,
+  lower = list(continuous = GGally::wrap("smooth_lm", se = TRUE, alpha = 0.7, size = 0.3)),
+  upper = list(continuous = GGally::wrap("cor", size = 3)),
+  diag  = list(continuous = "densityDiag")) +
+  theme_bw(base_size = 10)
+```
+
+
+```{r}
+# --- join ---
+df_all <- bias_ws %>% left_join(cult_raw, by = "language") %>% 
+  mutate(lexical_class=factor(lexical_class, levels=c("Nouns", "Verbs", "Adjectives")))
+
+g1_vars <- c("individualism", "flexibility")
+g2_vars <- c("distUS", "distChina")
+
+df_g1 <- df_all %>% select(language, lexical_class, mean, all_of(g1_vars))
+df_g2 <- df_all %>% select(language, lexical_class, mean, all_of(g2_vars))
+
+to_long <- function(df, vars){
+  df %>%
+    pivot_longer(cols = all_of(vars), names_to = "feature", values_to = "value") %>%
+    filter(!is.na(value), !is.na(mean))
+}
+
+
+# Group 1
+df_g1_long <- to_long(df_g1, g1_vars)
+
+ggplot(df_g1_long, aes(x = value, y = mean)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_grid(lexical_class ~ feature, scales = "free") +
+  theme_bw(base_size = 11) +
+  labs(x = "Cultural feature", y = "Lexical category bias")
+
+
+# Group 2
+df_g2_long <- to_long(df_g2, g2_vars)
+
+ggplot(df_g2_long, aes(x = value, y = mean)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_grid(lexical_class ~ feature, scales = "free") +
+  theme_bw(base_size = 11) +
+  labs(x = "Cultural feature", y = "Lexical category bias")
+
+
+# Correlations
+bias_col <- "mean"   
+cls_col  <- "lexical_class" 
+
+cor_tbl <- function(df_long){
+  df_long %>%
+    group_by(.data[[cls_col]], feature) %>%
+    summarise(
+      n = sum(!is.na(value) & !is.na(.data[[bias_col]])),
+      r = suppressWarnings(cor(value, .data[[bias_col]], use = "complete.obs", method = "pearson")),
+      p = suppressWarnings(cor.test(value, .data[[bias_col]], method = "pearson")$p.value),
+      .groups = "drop") %>% 
+    mutate(sig = case_when(p < .05 ~ "*", TRUE ~ "n.s."))
+}
+
+cor_tbl(df_g1_long)
+cor_tbl(df_g2_long)
+```
+
+
+
+# Individualism vs. Collectivism
+
+```{r}
+df_g1_long2 <- df_g1_long %>%
+  mutate(
+    bias_type = dplyr::recode(lexical_class,
+                       "Nouns" = "Noun bias",
+                       "Verbs" = "Verb bias",
+                       "Adjectives" = "Adjective bias"),
+    bias_type = factor(bias_type, levels = c("Noun bias", "Verb bias", "Adjective bias")),
+    feature = factor(
+      feature,
+      levels = c("individualism", "flexibility"),
+      labels = c("Individualism vs.\nCollectivism", "Flexibility vs.\nMonumentalism")),
+    language_group = case_when(
+      str_detect(language, "^English") ~ "English",
+      str_detect(language, "^Spanish") ~ "Spanish",
+      str_detect(language, "^French") ~  "French",
+      str_detect(language, "^Mandarin") ~ "Mandarin",
+      TRUE ~ "Other"),
+    region = str_match(language, "\\(([^)]+)\\)")[,2],
+    region = if_else(is.na(region), language, region)) %>% 
+  mutate(
+    region_short = case_when(
+      region == "American"    ~ "US",
+      region == "Australian"  ~ "AUS",
+      region == "British"     ~ "UK",
+      region == "Irish"       ~ "IRL",
+      region == "European"    ~ "EU",
+      region == "Argentinian" ~ "ARG",
+      region == "Mexican"     ~ "MEX",
+      region == "Peruvian"    ~ "PER",
+      region == "French"      ~ "FR",
+      region == "Quebecois"   ~ "QC",
+      region == "Beijing"     ~ "BJ",
+      region == "Taiwanese"   ~ "TW",
+      TRUE ~ region))
+
+df_other <- df_g1_long2
+df_hi    <- df_g1_long2 %>% filter(language_group %in% c("English", "Spanish"))
+
+col_cat <- c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")
+col_hi <- c("English" = "#7B6DBA", "Spanish" = "#2A9D8F")
+
+ggplot() +
+  geom_point(data = df_other, 
+             aes(x = value, y = mean, color = bias_type), alpha = 0.15, size = 1.4) +
+  geom_smooth(data = df_other, 
+              aes(x = value, y = mean, color = bias_type), 
+              method = "lm", se = TRUE, linewidth = 1, fill = "gray50", alpha = 0.12) +
+  scale_color_manual(values = col_cat, guide = "none") +
+  ggnewscale::new_scale_color() +
+  geom_point(data = df_hi, 
+             aes(x = value, y = mean, color = language_group, shape = language_group), 
+             alpha = 0.95, size = 2.6) +
+  ggrepel::geom_text_repel(data = df_hi, 
+                           aes(x = value, y = mean, label = region_short), 
+                           color = "grey25", size = 3.1, seed = 1, 
+                           min.segment.length = 0, segment.color = "grey70", segment.alpha = 0.6, 
+                           box.padding = 0.35, point.padding = 0.20, force = 1.8, max.overlaps = Inf,
+                           bg.color = "white", bg.r = 0.12) +
+  scale_color_manual(values = col_hi, name = "Language group") +
+  scale_shape_manual(values = c("English" = 16, "Spanish" = 17), name = "Language group") +
+  guides(color = guide_legend(override.aes = list(shape = c(16, 17))), shape = "none") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ feature, scales = "free") +
+  labs(x = NULL, y = "Lexical category bias") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.box = "horizontal", 
+        legend.direction = "horizontal",
+        legend.justification = "center",
+        legend.title = element_text(size = 10, margin = margin(r = 6)),
+        legend.text = element_text(size = 10),
+        legend.key.height = unit(10, "pt"),
+        legend.key.width  = unit(14, "pt"),
+        legend.spacing.x  = unit(4, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
+        legend.box.margin = margin(t = -2, r = 0, b = -2, l = 0),
+        strip.text = element_text(face = "bold", size = 13), 
+        strip.background = element_rect(fill = "grey90", color = NA), 
+        panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"), 
+        panel.grid.minor = element_blank(), 
+        panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"), 
+        panel.grid.minor.x = element_blank(), 
+        axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)), 
+        axis.text.x = element_text(size = 10, color="gray15"), 
+        axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.ticks.x = element_blank(), 
+        panel.spacing.x = unit(5, "pt"), 
+        panel.spacing.y = unit(5, "pt"), 
+        plot.margin = margin(4, 4, 4, 4))
+ggsave(here("Figures", "culture_preds.png"), width = 4.8, height = 5.2, dpi = 320, bg = "white")
+
+df_hi    <- df_g1_long2 %>% filter(language_group %in% c("French", "Mandarin"))
+col_hi <- c("French" = "#7B6DBA", "Mandarin" = "#2A9D8F")
+
+ggplot() +
+  geom_point(data = df_other, 
+             aes(x = value, y = mean, color = bias_type), alpha = 0.15, size = 1.4) +
+  geom_smooth(data = df_other, 
+              aes(x = value, y = mean, color = bias_type), 
+              method = "lm", se = TRUE, linewidth = 1, fill = "gray50", alpha = 0.12) +
+  scale_color_manual(values = col_cat, guide = "none") +
+  ggnewscale::new_scale_color() +
+  geom_point(data = df_hi, 
+             aes(x = value, y = mean, color = language_group, shape = language_group), 
+             alpha = 0.95, size = 2.6) +
+  ggrepel::geom_text_repel(data = df_hi, 
+                           aes(x = value, y = mean, label = region_short), 
+                           color = "grey25", size = 3.1, seed = 1, 
+                           min.segment.length = 0, segment.color = "grey70", segment.alpha = 0.6, 
+                           box.padding = 0.35, point.padding = 0.20, force = 1.8, max.overlaps = Inf,
+                           bg.color = "white", bg.r = 0.12) +
+  scale_color_manual(values = col_hi, name = "Language group") +
+  scale_shape_manual(values = c("French" = 16, "Mandarin" = 17), name = "Language group") +
+  guides(color = guide_legend(override.aes = list(shape = c(16, 17))), shape = "none") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ feature, scales = "free") +
+  labs(x = NULL, y = "Lexical category bias") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.box = "horizontal", 
+        legend.direction = "horizontal",
+        legend.justification = "center",
+        legend.title = element_text(size = 10, margin = margin(r = 6)),
+        legend.text = element_text(size = 10),
+        legend.key.height = unit(10, "pt"),
+        legend.key.width  = unit(14, "pt"),
+        legend.spacing.x  = unit(4, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
+        legend.box.margin = margin(t = -2, r = 0, b = -2, l = 0),
+        strip.text = element_text(face = "bold", size = 13), 
+        strip.background = element_rect(fill = "grey90", color = NA), 
+        panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"), 
+        panel.grid.minor = element_blank(), 
+        panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"), 
+        panel.grid.minor.x = element_blank(), 
+        axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)), 
+        axis.text.x = element_text(size = 10, color="gray15"), 
+        axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.ticks.x = element_blank(), 
+        panel.spacing.x = unit(5, "pt"), 
+        panel.spacing.y = unit(5, "pt"), 
+        plot.margin = margin(4, 4, 4, 4))
+```
+
+
+```{r}
+# dat_wide <- df_g1_long %>%
+#   select(language, lexical_class, bias = mean, feature, value) %>%
+#   tidyr::pivot_wider(names_from = feature, values_from = value) %>%
+#   drop_na(individualism, flexibility, bias)
+
+dat_wide <- df_g1_long %>%
+  select(language, lexical_class, bias = mean, feature, value) %>%
+  tidyr::pivot_wider(names_from = feature, values_from = value) %>%
+  drop_na(individualism, flexibility, bias) %>%
+  mutate(
+    individualism = as.numeric(scale(individualism)),
+    flexibility   = as.numeric(scale(flexibility)))
+
+# == Noun bias
+m_1 <- lm(bias ~ individualism * flexibility, data = dat_wide %>% subset(lexical_class=="Nouns"))
+m_2 <- lm(bias ~ individualism + flexibility, data = dat_wide %>% subset(lexical_class=="Nouns"))
+
+tibble(model  = c("Interaction", "Main effect only"),
+  AIC    = c(AIC(m_1), AIC(m_2)),
+  BIC    = c(BIC(m_1), BIC(m_2)),
+  R2     = c(summary(m_1)$r.squared, summary(m_2)$r.squared),
+  adj_R2 = c(summary(m_1)$adj.r.squared, summary(m_2)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_2)
+vif(m_2)
+
+
+# == Verb bias
+m_1 <- lm(bias ~ individualism * flexibility, data = dat_wide %>% subset(lexical_class=="Verbs"))
+m_2 <- lm(bias ~ individualism + flexibility, data = dat_wide %>% subset(lexical_class=="Verbs"))
+
+tibble(model  = c("Interaction", "Main effect only"),
+  AIC    = c(AIC(m_1), AIC(m_2)),
+  BIC    = c(BIC(m_1), BIC(m_2)),
+  R2     = c(summary(m_1)$r.squared, summary(m_2)$r.squared),
+  adj_R2 = c(summary(m_1)$adj.r.squared, summary(m_2)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_2)
+vif(m_2)
+
+
+# == Adjective bias
+m_1 <- lm(bias ~ individualism * flexibility, data = dat_wide %>% subset(lexical_class=="Adjectives"))
+m_2 <- lm(bias ~ individualism + flexibility, data = dat_wide %>% subset(lexical_class=="Adjectives"))
+
+tibble(model  = c("Interaction", "Main effect only"),
+  AIC    = c(AIC(m_1), AIC(m_2)),
+  BIC    = c(BIC(m_1), BIC(m_2)),
+  R2     = c(summary(m_1)$r.squared, summary(m_2)$r.squared),
+  adj_R2 = c(summary(m_1)$adj.r.squared, summary(m_2)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_2)
+vif(m_2)
+
+write.csv(dat_wide, here("Results", "df_culture.csv"), row.names=FALSE)
+```
+
+
+## Control for fequency
+
+```{r}
+df_freq_z <- read.csv(here("Results", "df_freq_z.csv"), header=TRUE)
+
+dat_wide2 <- dat_wide %>% left_join(df_freq_z)
+
+
+# == Noun bias
+m_2 <- lm(bias ~ individualism + flexibility + freq_noun_z + freq_verb_z + freq_adj_z,
+          data = dat_wide2 %>% subset(lexical_class=="Nouns"))
+summary(m_2)
+vif(m_2)
+
+
+# == Verb bias
+m_2 <- lm(bias ~ individualism + flexibility + freq_noun_z + freq_verb_z + freq_adj_z,
+          data = dat_wide2 %>% subset(lexical_class=="Verbs"))
+summary(m_2)
+vif(m_2)
+
+
+# == Adjective bias
+m_2 <- lm(bias ~ individualism + flexibility + freq_noun_z + freq_verb_z + freq_adj_z + predicativeAdj, 
+          data = dat_wide2 %>% subset(lexical_class=="Adjectives"))
+summary(m_2)
+vif(m_2)
+```
+
+
+
+# Cultural distance
+
+```{r}
+df_g2_long2 <- df_g2_long %>%
+  mutate(
+    bias_type = dplyr::recode(lexical_class,
+                       "Nouns" = "Noun bias",
+                       "Verbs" = "Verb bias",
+                       "Adjectives" = "Adjective bias"),
+    bias_type = factor(bias_type, levels = c("Noun bias", "Verb bias", "Adjective bias")),
+    feature = factor(
+      feature,
+      levels = c("distUS", "distChina"),
+      labels = c("Cultural distance\n(American)", "Cultural distance\n(Chinese)")),
+    language_group = case_when(
+      str_detect(language, "^English") ~ "English",
+      str_detect(language, "^Spanish") ~ "Spanish",
+      str_detect(language, "^French") ~  "French",
+      str_detect(language, "^Mandarin") ~ "Mandarin",
+      TRUE ~ "Other"),
+    region = str_match(language, "\\(([^)]+)\\)")[,2],
+    region = if_else(is.na(region), language, region)) %>% 
+  mutate(
+    region_short = case_when(
+      region == "American"    ~ "US",
+      region == "Australian"  ~ "AUS",
+      region == "Irish"       ~ "IRL",
+      region == "European"    ~ "EU",
+      region == "Argentinian" ~ "ARG",
+      region == "Mexican"     ~ "MEX",
+      region == "Peruvian"    ~ "PER",
+      region == "French"      ~ "FR",
+      region == "Quebecois"   ~ "QC",
+      region == "Beijing"     ~ "BJ",
+      region == "Taiwanese"   ~ "TW",
+      TRUE ~ region))
+
+df_other <- df_g2_long2
+df_hi    <- df_g2_long2 %>% filter(language_group %in% c("English", "Spanish"))
+
+col_cat <- c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")
+col_hi <- c("English" = "#7B6DBA", "Spanish" = "#2A9D8F")
+
+ggplot() +
+  geom_point(data = df_other, 
+             aes(x = value, y = mean, color = bias_type), alpha = 0.15, size = 1.4) +
+  geom_smooth(data = df_other, 
+            aes(x = value, y = mean, color = bias_type, group = bias_type), 
+            method = "lm", se = TRUE, linewidth = 1, fill = "gray50", alpha = 0.12, fullrange = TRUE) +
+　scale_color_manual(values = col_cat, guide = "none") +
+  ggnewscale::new_scale_color() +
+  geom_point(data = df_hi, 
+             aes(x = value, y = mean, color = language_group, shape = language_group), 
+             alpha = 0.95, size = 2.6) +
+  ggrepel::geom_text_repel(data = df_hi, 
+                           aes(x = value, y = mean, label = region_short), 
+                           color = "grey25", size = 3.1, seed = 1, 
+                           min.segment.length = 0, segment.color = "grey70", segment.alpha = 0.6, 
+                           box.padding = 0.35, point.padding = 0.20, force = 1.8, max.overlaps = Inf,
+                           bg.color = "white", bg.r = 0.12) +
+  scale_color_manual(values = col_hi, name = "Language group") +
+  scale_shape_manual(values = c("English" = 16, "Spanish" = 17), name = "Language group") +
+  guides(color = guide_legend(override.aes = list(shape = c(16, 17))), shape = "none") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ feature, scales = "free") +
+  labs(x = NULL, y = "Lexical category bias") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.box = "horizontal", 
+        legend.direction = "horizontal",
+        legend.justification = "center",
+        legend.title = element_text(size = 10, margin = margin(r = 6)),
+        legend.text = element_text(size = 10),
+        legend.key.height = unit(10, "pt"),
+        legend.key.width  = unit(14, "pt"),
+        legend.spacing.x  = unit(4, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
+        legend.box.margin = margin(t = -2, r = 0, b = -2, l = 0),
+        strip.text = element_text(face = "bold", size = 13), 
+        strip.background = element_rect(fill = "grey90", color = NA), 
+        panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"), 
+        panel.grid.minor = element_blank(), 
+        panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"), 
+        panel.grid.minor.x = element_blank(), 
+        axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)), 
+        axis.text.x = element_text(size = 10, color="gray15"), 
+        axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.ticks.x = element_blank(), 
+        panel.spacing.x = unit(5, "pt"), 
+        panel.spacing.y = unit(5, "pt"), 
+        plot.margin = margin(4, 4, 4, 4))
+
+
+df_hi    <- df_g2_long2 %>% filter(language_group %in% c("French", "Mandarin"))
+col_hi <- c("French" = "#7B6DBA", "Mandarin" = "#2A9D8F")
+
+ggplot() +
+  geom_point(data = df_other, 
+             aes(x = value, y = mean, color = bias_type), alpha = 0.15, size = 1.4) +
+  geom_smooth(data = df_other, 
+            aes(x = value, y = mean, color = bias_type, group = bias_type), 
+            method = "lm", se = TRUE, linewidth = 1, fill = "gray50", alpha = 0.12, fullrange = TRUE) +
+　scale_color_manual(values = col_cat, guide = "none") +
+  ggnewscale::new_scale_color() +
+  geom_point(data = df_hi, 
+             aes(x = value, y = mean, color = language_group, shape = language_group), 
+             alpha = 0.95, size = 2.6) +
+  ggrepel::geom_text_repel(data = df_hi, 
+                           aes(x = value, y = mean, label = region_short), 
+                           color = "grey25", size = 3.1, seed = 1, 
+                           min.segment.length = 0, segment.color = "grey70", segment.alpha = 0.6, 
+                           box.padding = 0.35, point.padding = 0.20, force = 1.8, max.overlaps = Inf,
+                           bg.color = "white", bg.r = 0.12) +
+  scale_color_manual(values = col_hi, name = "Language group") +
+  scale_shape_manual(values = c("French" = 16, "Mandarin" = 17), name = "Language group") +
+  guides(color = guide_legend(override.aes = list(shape = c(16, 17))), shape = "none") +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ feature, scales = "free") +
+  labs(x = NULL, y = "Lexical category bias") +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.box = "horizontal", 
+        legend.direction = "horizontal",
+        legend.justification = "center",
+        legend.title = element_text(size = 10, margin = margin(r = 6)),
+        legend.text = element_text(size = 10),
+        legend.key.height = unit(10, "pt"),
+        legend.key.width  = unit(14, "pt"),
+        legend.spacing.x  = unit(4, "pt"),
+        legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
+        legend.box.margin = margin(t = -2, r = 0, b = -2, l = 0),
+        strip.text = element_text(face = "bold", size = 13), 
+        strip.background = element_rect(fill = "grey90", color = NA), 
+        panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"), 
+        panel.grid.minor = element_blank(), 
+        panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"), 
+        panel.grid.minor.x = element_blank(), 
+        axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)), 
+        axis.text.x = element_text(size = 10, color="gray15"), 
+        axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)), 
+        axis.ticks.x = element_blank(), 
+        panel.spacing.x = unit(5, "pt"), 
+        panel.spacing.y = unit(5, "pt"), 
+        plot.margin = margin(4, 4, 4, 4))
+```
+
+
+```{r}
+dat_wide <- df_g2_long %>%
+  select(language, lexical_class, bias = mean, feature, value) %>%
+  tidyr::pivot_wider(names_from = feature, values_from = value) %>%
+  drop_na(distUS, distChina, bias)
+
+# == Noun bias
+m_1 <- lm(bias ~ distUS * distChina, data = dat_wide %>% subset(lexical_class=="Nouns"))
+m_2 <- lm(bias ~ distUS + distChina, data = dat_wide %>% subset(lexical_class=="Nouns"))
+
+tibble(model  = c("Interaction", "Main effect only"),
+  AIC    = c(AIC(m_1), AIC(m_2)),
+  BIC    = c(BIC(m_1), BIC(m_2)),
+  R2     = c(summary(m_1)$r.squared, summary(m_2)$r.squared),
+  adj_R2 = c(summary(m_1)$adj.r.squared, summary(m_2)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_2)
+vif(m_2)
+
+
+# == Verb bias
+m_1 <- lm(bias ~ distUS * distChina, data = dat_wide %>% subset(lexical_class=="Verbs"))
+m_2 <- lm(bias ~ distUS + distChina, data = dat_wide %>% subset(lexical_class=="Verbs"))
+
+tibble(model  = c("Interaction", "Main effect only"),
+  AIC    = c(AIC(m_1), AIC(m_2)),
+  BIC    = c(BIC(m_1), BIC(m_2)),
+  R2     = c(summary(m_1)$r.squared, summary(m_2)$r.squared),
+  adj_R2 = c(summary(m_1)$adj.r.squared, summary(m_2)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_2)
+vif(m_2)
+
+
+# == Adjective bias
+m_1 <- lm(bias ~ distUS * distChina, data = dat_wide %>% subset(lexical_class=="Adjectives"))
+m_2 <- lm(bias ~ distUS + distChina, data = dat_wide %>% subset(lexical_class=="Adjectives"))
+
+tibble(model  = c("Interaction", "Main effect only"),
+  AIC    = c(AIC(m_1), AIC(m_2)),
+  BIC    = c(BIC(m_1), BIC(m_2)),
+  R2     = c(summary(m_1)$r.squared, summary(m_2)$r.squared),
+  adj_R2 = c(summary(m_1)$adj.r.squared, summary(m_2)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_2)
+vif(m_2)
+```
+

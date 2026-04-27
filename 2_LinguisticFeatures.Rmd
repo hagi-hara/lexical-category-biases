@@ -1,0 +1,765 @@
+---
+title: "Linguistic Features Predict Acquisition Bias?"
+output: html_document
+date: "2026-01-14"
+---
+
+```{r}
+library(tidyverse)
+library(here)
+library(glmnet)
+library(ggtext)
+library(patchwork)
+set.seed(1)
+```
+
+
+# Preparation
+
+```{r}
+bias_raw <- readr::read_csv(here("Data", "bias_WS_Ref_TotalVocab_2025Jun18.csv"), show_col_types = FALSE)
+feat_raw <- readr::read_csv(here("Data", "LinguisticFeatures.csv"), show_col_types = FALSE)
+rel_raw  <- readr::read_csv(here("Data", "Relevance.csv"),  show_col_types = FALSE)
+
+bias <- bias_raw %>% mutate(
+  language = str_squish(language),
+  form     = str_squish(form),
+  lexical_class = str_squish(lexical_class),
+  measure  = str_squish(measure))
+feat <- feat_raw %>% mutate(language = str_squish(language))
+rel <- rel_raw %>% mutate(featureTag = str_squish(featureTag))
+
+langs_in_feat <- feat %>% distinct(language)
+
+bias_ws <- bias %>% filter(form == "WS") %>%
+  semi_join(langs_in_feat, by = "language")
+
+# Check
+bias_ws %>% count(lexical_class, measure) %>%
+  arrange(desc(n)) %>%
+  print(n = Inf)
+
+bias_ws %>% count(language, lexical_class) %>%
+  filter(n > 1)
+```
+
+
+```{r}
+build_ds <- function(target_class = c("Nouns", "Verbs", "Adjectives")) {
+  target_class <- match.arg(target_class)
+  # Relevance column names are "Noun"/"Verb"/"Adjective" in your Relevance.csv
+  rel_col <- case_when(
+    target_class == "Nouns"      ~ "Noun",
+    target_class == "Verbs"      ~ "Verb",
+    target_class == "Adjectives" ~ "Adjective")
+
+  # pick relevant feature names
+  rel_feats <- rel %>% filter(.data[[rel_col]] == "Relevant") %>%
+    pull(featureTag) %>%
+    unique()
+
+  # keep only feature columns that actually exist in feat
+  rel_feats <- intersect(rel_feats, names(feat))
+
+  # outcome: bias mean for this lexical class (WS only, languages filtered already)
+  y <- bias_ws %>%
+    filter(lexical_class == target_class) %>%
+    select(language, y = mean)
+
+  # x: selected features
+  x <- feat %>% select(language, all_of(rel_feats))
+
+  # join
+  ds <- y %>% inner_join(x, by = "language")
+
+  list(
+    data = ds,
+    features = rel_feats)
+}
+
+ds_noun <- build_ds("Nouns")
+ds_verb <- build_ds("Verbs")
+ds_adj  <- build_ds("Adjectives")
+
+# quick checks
+glimpse(ds_noun$data)
+glimpse(ds_verb$data)
+glimpse(ds_adj$data)
+
+# number of languages retained
+tibble(
+  lexical_class = c("Nouns", "Verbs", "Adjectives"),
+  n_lang = c(nrow(ds_noun$data), nrow(ds_verb$data), nrow(ds_adj$data)),
+  n_feat = c(length(ds_noun$features), length(ds_verb$features), length(ds_adj$features))) %>% 
+  print()
+```
+
+
+```{r}
+keep_complete <- function(ds) {
+  ds$data <- ds$data %>% drop_na()
+  ds
+}
+
+ds_noun_cc <- keep_complete(ds_noun)
+ds_verb_cc <- keep_complete(ds_verb)
+ds_adj_cc  <- keep_complete(ds_adj)
+
+# check number of languages
+tibble(
+  lexical_class = c("Nouns", "Verbs", "Adjectives"),
+  n_lang = c(
+    nrow(ds_noun_cc$data),
+    nrow(ds_verb_cc$data),
+    nrow(ds_adj_cc$data))) %>% print()
+
+
+factorize_predictors <- function(ds) {
+  ds$data <- ds$data %>%
+    mutate(across(-c(language, y), as.factor))
+  ds
+}
+
+ds_noun_cc <- factorize_predictors(ds_noun_cc)
+ds_verb_cc <- factorize_predictors(ds_verb_cc)
+ds_adj_cc  <- factorize_predictors(ds_adj_cc)
+
+# Change reference level:
+ds_noun_cc$data <- ds_noun_cc$data %>% 
+  mutate(wordOrder = forcats::fct_relevel(wordOrder, "SVO"))
+         # orderAdposN = forcats::fct_relevel(orderAdposN, "Prepositions"))
+ds_verb_cc$data <- ds_verb_cc$data %>% 
+  mutate(wordOrder = forcats::fct_relevel(wordOrder, "SVO"))
+ds_adj_cc$data <- ds_adj_cc$data %>% 
+  mutate(wordOrder = forcats::fct_relevel(wordOrder, "SVO"))
+
+# Intercept (reference level) -> check ds_XXXX_cc
+```
+
+
+
+# Function development
+
+## Outer CV - LOOCV + Elastic Net
+
+```{r}
+make_design <- function(df) {
+  mm <- model.matrix(y ~ . - language, data = df)
+  list(
+    X = mm[, -1, drop = FALSE],  # drop intercept
+    y = df$y,
+    language = df$language
+  )
+}
+
+
+outer_loocv_skeleton <- function(ds) {
+  design <- make_design(ds$data)
+
+  n <- length(design$y)
+
+  results <- map_dfr(seq_len(n), function(i) {
+    test_lang <- design$language[i]
+
+    # split
+    train_idx <- setdiff(seq_len(n), i)
+    test_idx  <- i
+
+    X_train <- design$X[train_idx, , drop = FALSE]
+    y_train <- design$y[train_idx]
+
+    X_test  <- design$X[test_idx, , drop = FALSE]
+    y_test  <- design$y[test_idx]
+
+    # -----
+    # Later we will add：
+    #   - Inner CV
+    #   - alpha / lambda selection
+    #   - Elastic Net learning
+    #   - y_pred calculation
+    # -----
+
+    tibble(
+      language = test_lang,
+      y_true   = y_test,
+      y_pred   = NA_real_)
+  })
+  results
+}
+
+# Check functions
+res_noun_loocv <- outer_loocv_skeleton(ds_noun_cc)
+res_verb_loocv <- outer_loocv_skeleton(ds_verb_cc)
+res_adj_loocv  <- outer_loocv_skeleton(ds_adj_cc)
+
+glimpse(res_noun_loocv)
+```
+
+
+
+## Inner CV - 5-fold CV + Elastic Net
+
+```{r}
+select_alpha_lambda <- function(
+  X_train,
+  y_train,
+  alpha_grid = c(0, 0.25, 0.5, 0.75, 1),
+  nfolds = 5) {
+
+  cv_results <- map_dfr(alpha_grid, function(a) {
+    set.seed(123)
+    cvfit <- cv.glmnet(
+      x = X_train,
+      y = y_train,
+      alpha = a,
+      nfolds = nfolds,
+      standardize = TRUE)
+
+    tibble(
+      alpha = a,
+      lambda_1se = cvfit$lambda.1se,
+      cv_error   = min(cvfit$cvm))
+  })
+
+  best <- cv_results %>%
+    filter(cv_error == min(cv_error)) %>%
+    arrange(alpha) %>%
+    slice(1)
+
+  list(
+    alpha = best$alpha,
+    lambda = best$lambda_1se,
+    cv_table = cv_results)
+}
+
+# Check the function
+design_noun <- make_design(ds_noun_cc$data)
+
+test_fit <- select_alpha_lambda(
+  X_train = design_noun$X,
+  y_train = design_noun$y)
+
+test_fit$alpha
+test_fit$lambda
+test_fit$cv_table
+
+```
+
+
+## Final function
+
+```{r}
+outer_loocv_elastic_net <- function(ds,
+                                    alpha_grid = c(0, 0.25, 0.5, 0.75, 1),
+                                    nfolds_inner = 5) {
+  design <- make_design(ds$data)
+  n <- length(design$y)
+
+  results <- map_dfr(seq_len(n), function(i) {
+
+    # split
+    train_idx <- setdiff(seq_len(n), i)
+    test_idx  <- i
+
+    X_train <- design$X[train_idx, , drop = FALSE]
+    y_train <- design$y[train_idx]
+
+    X_test  <- design$X[test_idx, , drop = FALSE]
+    y_test  <- design$y[test_idx]
+
+    # ---- inner CV: alpha / lambda selection ----
+    tuning <- select_alpha_lambda(
+      X_train = X_train,
+      y_train = y_train,
+      alpha_grid = alpha_grid,
+      nfolds = nfolds_inner)
+
+    # ---- fit Elastic Net with selected hyperparameters ----
+    fit <- glmnet(
+      x = X_train,
+      y = y_train,
+      alpha = tuning$alpha,
+      lambda = tuning$lambda,
+      standardize = TRUE)
+
+    # ---- prediction ----
+    y_pred <- as.numeric(predict(fit, X_test))
+
+    tibble(
+      language = design$language[i],
+      y_true   = y_test,
+      y_pred   = y_pred,
+      alpha    = tuning$alpha,
+      lambda   = tuning$lambda)
+  })
+
+  results
+}
+```
+
+
+
+# Analysis
+
+```{r}
+res_noun <- outer_loocv_elastic_net(ds_noun_cc)
+res_verb <- outer_loocv_elastic_net(ds_verb_cc)
+res_adj  <- outer_loocv_elastic_net(ds_adj_cc)
+
+# Quick check
+summary(res_noun$y_pred) # any values?
+count(res_noun, alpha)   # alpha distribution
+res_noun %>%             # real values vs. predicted values
+  summarise(
+    rmse = sqrt(mean((y_true - y_pred)^2)),
+    mae  = mean(abs(y_true - y_pred)))
+```
+
+
+## Choose hyper parameters
+
+```{r}
+# alpha: Elastic Net mixing parameter
+# 0 = Ridge regression (L2 penalty only)
+# 1 = Lasso regression (L1 penalty only)
+# 0 < alpha < 1 = Elastic Net (combination of L1 and L2)
+# Smaller alpha -> more stable coefficients under multicollinearity
+
+choose_alpha <- function(res_loocv) {
+  res_loocv %>%
+    count(alpha) %>%
+    arrange(desc(n), alpha) %>%
+    slice(1) %>%
+    pull(alpha)
+}
+
+alpha_noun <- choose_alpha(res_noun)
+alpha_verb <- choose_alpha(res_verb)
+alpha_adj  <- choose_alpha(res_adj)
+
+count(res_noun, alpha)
+count(res_verb, alpha)
+count(res_adj,  alpha)
+```
+
+
+
+```{r}
+# lambda: regularization strength
+# Larger lambda -> stronger shrinkage of coefficients
+# Controls model complexity and prevents overfitting
+# Selected via cross-validation (lambda.1se for stability)
+
+fit_final_cv <- function(ds, alpha, nfolds = 5) {
+  design <- make_design(ds$data)
+
+  cvfit <- cv.glmnet(
+    x = design$X,
+    y = design$y,
+    alpha = alpha,
+    nfolds = nfolds,
+    standardize = TRUE)
+
+  list(
+    cvfit = cvfit,
+    lambda = cvfit$lambda.1se,
+    design = design)
+}
+
+final_noun <- fit_final_cv(ds_noun_cc, alpha_noun)
+final_verb <- fit_final_cv(ds_verb_cc, alpha_verb)
+final_adj  <- fit_final_cv(ds_adj_cc,  alpha_adj)
+```
+
+
+
+## Fit final elastic net
+
+```{r}
+# Hyperparameters (alpha, lambda) are tuned in inner CV,
+# while outer LOOCV is used solely for unbiased performance evaluation.
+
+# Representative alpha is chosen as the most frequently selected value
+# across outer LOOCV folds, for fitting the final interpretative model
+
+# Alpha is tuned within inner CV for prediction in each LOOCV fold.
+# The representative alpha (mode across folds) is used only
+# to fit the final model for interpretation.
+
+fit_elastic_net <- function(final_obj, alpha) {
+  glmnet(
+    x = final_obj$design$X,
+    y = final_obj$design$y,
+    alpha = alpha,
+    lambda = final_obj$lambda,
+    standardize = TRUE)
+}
+
+model_noun <- fit_elastic_net(final_noun, alpha_noun)
+model_verb <- fit_elastic_net(final_verb, alpha_verb)
+model_adj  <- fit_elastic_net(final_adj,  alpha_adj)
+```
+
+
+## Extract coefficients (point est)
+
+```{r}
+extract_coef <- function(model, alpha, lambda) {
+  coef_mat <- coef(model, s = lambda)
+
+  tibble(
+    term = rownames(coef_mat),
+    estimate = as.numeric(coef_mat)) %>%
+    filter(term != "(Intercept)", estimate != 0) %>%
+    arrange(desc(abs(estimate))) %>%
+    mutate(alpha = alpha)
+}
+
+coef_noun <- extract_coef(model_noun, alpha_noun, final_noun$lambda)
+coef_verb <- extract_coef(model_verb, alpha_verb, final_verb$lambda)
+coef_adj  <- extract_coef(model_adj,  alpha_adj,  final_adj$lambda)
+
+coef_noun
+coef_verb
+coef_adj
+
+```
+
+
+## Bootstrap coefficitnt
+
+```{r}
+# Confidence intervals were obtained via case bootstrap (B = 1000)
+# on the final ridge regression model with fixed alpha and lambda.
+# This provides uncertainty estimates for regularized coefficients,
+# which are not analytically available in glmnet.
+
+bootstrap_coef <- function(ds, alpha, lambda, B = 1000, seed = 123) {
+  set.seed(seed)
+
+  design <- make_design(ds$data)
+  n <- length(design$y)
+  p <- ncol(design$X)
+  coef_names <- colnames(design$X)
+
+  coef_mat <- matrix(NA_real_, nrow = B, ncol = p,
+                     dimnames = list(NULL, coef_names))
+
+  for (b in seq_len(B)) {
+    idx <- sample(seq_len(n), size = n, replace = TRUE)
+
+    fit <- glmnet(
+      x = design$X[idx, , drop = FALSE],
+      y = design$y[idx],
+      alpha = alpha,
+      lambda = lambda,
+      standardize = TRUE)
+
+    coef_mat[b, ] <- as.numeric(coef(fit, s = lambda))[-1]
+  }
+  coef_mat
+}
+
+boot_noun <- bootstrap_coef(
+  ds_noun_cc,
+  alpha = alpha_noun,
+  lambda = final_noun$lambda,
+  B = 1000)
+
+boot_verb <- bootstrap_coef(
+  ds_verb_cc,
+  alpha = alpha_verb,
+  lambda = final_verb$lambda,
+  B = 1000)
+
+boot_adj <- bootstrap_coef(
+  ds_adj_cc,
+  alpha = alpha_adj,
+  lambda = final_adj$lambda,
+  B = 1000)
+```
+
+
+```{r}
+summarise_boot <- function(coef_df, boot_mat) {
+  coef_df %>%
+    rowwise() %>%
+    mutate(
+      ci_lower = quantile(boot_mat[, term], 0.025, na.rm = TRUE),
+      ci_upper = quantile(boot_mat[, term], 0.975, na.rm = TRUE)) %>%
+    ungroup()
+}
+
+coef_noun_ci <- summarise_boot(coef_noun, boot_noun)
+coef_verb_ci <- summarise_boot(coef_verb, boot_verb)
+coef_adj_ci  <- summarise_boot(coef_adj,  boot_adj)
+
+coef_noun_ci %>% print(n=30)
+coef_verb_ci
+coef_adj_ci
+```
+
+
+
+# Visualization
+
+```{r}
+coef_noun_ci <- coef_noun_ci %>% mutate(lexical_class = "Noun")
+coef_verb_ci <- coef_verb_ci %>% mutate(lexical_class = "Verb")
+coef_adj_ci <- coef_adj_ci %>% mutate(lexical_class = "Adjective")
+
+coef_plot <- bind_rows(coef_noun_ci, coef_verb_ci, coef_adj_ci)
+
+coef_plot <- coef_plot %>%
+  mutate(term_clean = term %>% str_squish(),
+    term_label = case_when(
+      # --- Articles (baseline = absent) ---
+      str_detect(term_clean, "^articleBoth")       ~ "Articles: both",
+      str_detect(term_clean, "^articleDefinite")   ~ "Articles: definite-only",
+      str_detect(term_clean, "^articleIndefinite") ~ "Articles: indefinite-only",
+
+      # --- Case number (baseline = none) ---
+      str_detect(term_clean, "^numCase2~4") ~ "Case number: 2–4",
+      str_detect(term_clean, "^numCase5~")  ~ "Case number: ≥5",
+
+      # --- Case position (baseline = absent) ---
+      str_detect(term_clean, "^posCaseAffixCaseSuffix")         ~ "Case position: suffixal",
+      str_detect(term_clean, "^posCaseAffixPrepositionalClitics") ~ "Case position: prepositional clitics",
+      str_detect(term_clean, "^posCaseAffixPostpositionalClitics") ~ "Case position: postpositional clitics",
+      str_detect(term_clean, "^posCaseAffixMixed")              ~ "Case position: mixed",
+
+      # --- Plural marking (baseline = absent) ---
+      str_detect(term_clean, "^posNomPluralPluralPrefix")   ~ "Plural marking: prefixal",
+      str_detect(term_clean, "^posNomPluralPluralSuffix")   ~ "Plural marking: suffixal",
+      str_detect(term_clean, "^posNomPluralMixed")          ~ "Plural marking: mixed",
+
+      # --- Nominal plurality (baseline = absent) ---
+      str_detect(term_clean, "^nomPlural") ~ "Nominal plurality: present",
+
+      # --- Numeral classifiers (baseline = absent) ---
+      str_detect(term_clean, "^classifier") ~ "Numeral classifiers: present",
+
+      # --- Adposition–NP order (baseline = no dominant order, if present in your coding) ---
+      str_detect(term_clean, "^orderAdposNPrepositions")  ~ "Adp–NP order: prepositional",
+      str_detect(term_clean, "^orderAdposNPostpositions") ~ "Adp–NP order: postpositional",
+      str_detect(term_clean, "^orderAdposN")              ~ "Adp–NP order: no dominant order",
+
+      # --- Tense marking (baseline = none) ---
+      str_detect(term_clean, "^tenseBoth") ~ "Tense marking: both",
+      str_detect(term_clean, "^tensePast") ~ "Tense marking: past-only",
+      str_detect(term_clean, "^tense")     ~ "Tense marking: none",
+
+      # --- Verbal person marking (baseline = none) ---
+      str_detect(term_clean, "^vPersonAgentPatient") ~ "Verbal person marking: agent–patient",
+      str_detect(term_clean, "^vPersonAgent$|^vPersonAgent(?=[A-Z])") ~ "Verbal person marking: agent",
+      str_detect(term_clean, "^vPerson")             ~ "Verbal person marking: none",
+
+      # --- Tense–aspect position (baseline = absent) ---
+      str_detect(term_clean, "^posTenseAspectAffixTenseAspectPrefixes") ~ "Tense–aspect position: prefixal",
+      str_detect(term_clean, "^posTenseAspectAffixTenseAspectSuffixes") ~ "Tense–aspect position: suffixal",
+      str_detect(term_clean, "^posTenseAspectAffixMixed")               ~ "Tense–aspect position: mixed",
+      str_detect(term_clean, "^posTenseAspectAffix")                    ~ "Tense–aspect position: absent",
+
+      # --- Verbal suppletion (baseline = absent) ---
+      str_detect(term_clean, "^supplTenseAspect") ~ "Verbal suppletion: present",
+
+      # --- Comparative marking (baseline = absent) ---
+      str_detect(term_clean, "^compDeg") ~ "Comparative marking: present",
+
+      # --- Verbal adjectives (baseline = absent) ---
+      str_detect(term_clean, "^(predicativeAdj|predAdj|verbalAdj|adjAsVerb)") ~ "Verbal adjectives: present",
+
+      # --- Word order (baseline = no dominant order, if present in your coding) ---
+      str_detect(term_clean, "^wordOrderSVO") ~ "Word order: SVO",
+      str_detect(term_clean, "^wordOrderSOV") ~ "Word order: SOV",
+      str_detect(term_clean, "^wordOrderVSO") ~ "Word order: VSO",
+      str_detect(term_clean, "^wordOrder")    ~ "Word order: no dominant order",
+
+      # --- Pro-drop (baseline = absent) ---
+      str_detect(term_clean, "^proDrop|^prodDrop|^prodrop") ~ "Pro-drop: present",
+
+      # --- Adjective–noun order (baseline = no dominant order, if present in your coding) ---
+      str_detect(term_clean, "^orderAdjN.*Adj-N") ~ "Adjective–noun order: Adj–N",
+      str_detect(term_clean, "^orderAdjN.*N-Adj") ~ "Adjective–noun order: N–Adj",
+      str_detect(term_clean, "^orderAdjN")        ~ "Adjective–noun order: no dominant order",
+
+      TRUE ~ term_clean))
+
+# quick check (optional)
+coef_plot %>% distinct(term, term_label) -> tmp
+# View(tmp)
+# write.csv(tmp, file="term_label.csv")
+```
+
+
+## Forest plot
+
+```{r}
+coef_plot2 <- coef_plot %>%
+  mutate(
+    significant = if_else(ci_lower > 0 | ci_upper < 0, "CI excludes 0", "CI includes 0"),
+    pred = case_when(
+      str_detect(term_label, "^Articles:") ~ "Articles",
+      str_detect(term_label, "^Case number:") ~ "Case number",
+      str_detect(term_label, "^Case position:") ~ "Case position",
+      str_detect(term_label, "^Plural marking:") ~ "Plural marking",
+      str_detect(term_label, "^Nominal plurality:") ~ "Nominal plurality",
+      str_detect(term_label, "^Numeral classifiers:") ~ "Numeral classifiers",
+      str_detect(term_label, "^Adposition–NP order:") ~ "Adposition–NP order",
+      str_detect(term_label, "^Tense marking:") ~ "Tense marking",
+      str_detect(term_label, "^Verbal person marking:") ~ "Verbal person marking",
+      str_detect(term_label, "^Tense–aspect position:") ~ "Tense–aspect position",
+      str_detect(term_label, "^Verbal suppletion:") ~ "Verbal suppletion",  
+      str_detect(term_label, "^Comparative marking:") ~ "Comparative marking",
+      str_detect(term_label, "^Verbal adjectives:") ~ "Verbal adjectives",
+      str_detect(term_label, "^Word order:") ~ "Word order",
+      str_detect(term_label, "^Pro-drop:") ~ "Pro-drop",
+      str_detect(term_label, "^Adjective–noun order:") ~ "Adjective–noun order",
+      TRUE ~ "Other")) %>%
+  group_by(lexical_class) %>%
+  mutate(
+    pred = factor(pred, levels = c(
+      "Articles","Case number","Case position","Plural marking","Nominal plurality",
+      "Numeral classifiers","Adposition–NP order",
+      "Tense marking","Verbal person marking","Tense–aspect position","Verbal suppletion",
+      "Comparative marking","Verbal adjectives",
+      "Word order","Pro-drop","Adjective–noun order","Other")),
+    bonus = case_when(
+      pred == "Case number" & str_detect(term_label, "2–4$") ~ 10,
+      pred == "Case number" & str_detect(term_label, "≥5$")  ~ 50,
+      TRUE ~ 0),
+    sort_key = 1000 * as.numeric(pred) + bonus + (-estimate),
+    term_label = fct_rev(fct_reorder(term_label, sort_key))) %>%
+  ungroup() %>% 
+  mutate(term_label_md = str_replace(as.character(term_label), "^([^:]+):", "<b>\\1</b>:"),
+         term_label_md = factor(term_label_md,
+                                levels = str_replace(levels(term_label), "^([^:]+):", "<b>\\1</b>:")))
+
+cols <- c(Noun = "#2C7BB6", Verb = "#1A9850", Adjective = "#D95F02")
+
+base_th <- theme_bw(base_size = 11) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5, size = 15),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    strip.text = element_text(face = "bold", size = 15),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    # axis.text.y = element_text(size = 11, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.y = element_markdown(size = 11, color = "gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    # axis.title.x = element_text(size = 11, color="gray15", face = "bold", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 11, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),    
+    legend.position = "none",
+    plot.margin = margin(1, 1, 1, 1))
+
+# --- Nouns ---
+df_n <- coef_plot2 %>% filter(lexical_class == "Noun")
+# ggplot(df_n, aes(x = estimate, y = term_label)) +
+p_n <- ggplot(df_n, aes(x = estimate, y = term_label_md)) +
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper, linewidth = significant, alpha = significant),
+                 height = 0.22, color = cols["Noun"]) +
+  geom_point(aes(size = significant, alpha = significant), color = cols["Noun"]) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey30") +
+  scale_size_manual(values = c("CI excludes 0" = 3.1, "CI includes 0" = 1.6), guide = "none") +
+  scale_alpha_manual(values = c("CI excludes 0" = 1.0, "CI includes 0" = 0.75), guide = "none") +
+  scale_linewidth_manual(values = c("CI excludes 0" = 1, "CI includes 0" = 0.35), guide = "none") +
+  labs(title = "Nouns", x = "Coefficient estimate (×0.001)", y = NULL) +
+  # scale_x_continuous(expand = expansion(mult = c(0.03, 0.08)))+
+  scale_x_continuous(breaks = c(-6e-3, -3e-3, 0, 3e-3, 6e-3), labels = c("-6", "-3", "0", "3", "6"),
+                     expand = expansion(mult = c(0.06, 0.10))) +
+  base_th
+p_n
+# ggsave("Fig2_Typological_Noun.png", width = 5, height = 6, dpi = 300)
+
+# --- Verbs ---
+df_v <- coef_plot2 %>% filter(lexical_class == "Verb")
+p_v <- ggplot(df_v, aes(x = estimate, y = term_label_md)) +
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper, linewidth = significant, alpha = significant),
+                 height = 0.22, color = cols["Verb"]) +
+  geom_point(aes(size = significant, alpha = significant), color = cols["Verb"]) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey30") +
+  scale_size_manual(values = c("CI excludes 0" = 3.1, "CI includes 0" = 1.6), guide = "none") +
+  scale_alpha_manual(values = c("CI excludes 0" = 1.0, "CI includes 0" = 0.75), guide = "none") +
+  scale_linewidth_manual(values = c("CI excludes 0" = 1, "CI includes 0" = 0.35), guide = "none") +
+  labs(title = "Verbs", x = "Coefficient estimate (×0.0001)", y = NULL) +
+  scale_x_continuous(breaks = c(-2e-4, -1e-4, 0, 1e-4, 2e-4), labels = c("-2", "-1", "0", "1", "2"),
+                     expand = expansion(mult = c(0.06, 0.10))) +
+  base_th
+p_v
+# ggsave("Fig2_Typological_Verb.png", width = 5.2, height = 4, dpi = 300)
+
+# --- Adjectives ---
+df_a <- coef_plot2 %>% filter(lexical_class == "Adjective")
+p_a <- ggplot(df_a, aes(x = estimate, y = term_label_md)) +
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper, linewidth = significant, alpha = significant),
+                 height = 0.22, color = cols["Adjective"]) +
+  geom_point(aes(size = significant, alpha = significant), color = cols["Adjective"]) +
+  geom_vline(xintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey30") +
+  scale_size_manual(values = c("CI excludes 0" = 3.1, "CI includes 0" = 1.6), guide = "none") +
+  scale_alpha_manual(values = c("CI excludes 0" = 1.0, "CI includes 0" = 0.75), guide = "none") +
+  scale_linewidth_manual(values = c("CI excludes 0" = 1, "CI includes 0" = 0.35), guide = "none") +
+  labs(title = "Adjectives", x = "Coefficient estimate (×0.0001)", y = NULL) +
+  scale_x_continuous(breaks = c(-1e-4, 0, 1e-4, 2e-4), labels = c("-1", "0", "1", "2"),
+    expand = expansion(mult = c(0.06, 0.10))) +
+  base_th
+p_a
+# ggsave("Fig2_Typological_Adjective.png", width = 4.5, height = 2.1, dpi = 300)
+
+p_all <- p_n / plot_spacer() / p_v / plot_spacer() / p_a + plot_layout(heights = c(6.3, 0.03, 3.9, 0.03, 1.7)) 
+p_all
+ggsave(filename = here("Figures", "typo_preds.png"), plot = p_all, width = 4.8, height = 6.3+3.9+1.7-0.2, dpi = 300)
+write.csv(coef_plot2, here("Results", "typo_preds.csv"), row.names=FALSE)
+```
+
+
+
+# MCA (Multiple Correspondence Analysis) --- still in progress
+
+```{r}
+library(FactoMineR)
+library(factoextra)
+```
+
+
+```{r}
+vars <- names(feat)[match("wordOrder", names(feat)) : match("predicativeAdj", names(feat))]
+feat_mca <- feat %>% mutate(across(all_of(vars), ~ as.factor(.)))
+
+# run usual MCA
+set.seed(1)
+res_mca <- MCA(feat_mca[, vars, drop = FALSE], graph = FALSE)
+
+fviz_screeplot(res_mca, addlabels = TRUE)
+
+# Example：Contributions of Dim1, Dim2
+fviz_contrib(res_mca, choice = "var", axes = 1, top = 20)
+fviz_contrib(res_mca, choice = "var", axes = 2, top = 20)
+
+## ---- 5) 数値で見たい場合（寄与%をテーブル化） ----
+contrib_var <- as.data.frame(res_mca$var$contrib)  # 行=カテゴリ水準（モダリティ）単位
+head(contrib_var)
+
+# 変数単位で寄与をまとめたい場合（モダリティ寄与を変数ごとに合算）
+contrib_varname_dim1 <- res_mca$var$contrib %>%
+  as.data.frame() %>%
+  tibble::rownames_to_column("modality") %>%
+  mutate(var = sub("=.*$", "", modality)) %>%   # "var=level" 形式を想定
+  group_by(var) %>%
+  summarise(Dim1 = sum(`Dim 1`), Dim2 = sum(`Dim 2`), .groups = "drop") %>%
+  arrange(desc(Dim1))
+
+contrib_varname_dim1
+```
+
+
+
+
+
+```{r}
+feat
+```
+

@@ -1,0 +1,1364 @@
+---
+title: "PlotBiases"
+output: html_document
+date: "2026-01-20"
+---
+
+
+```{r}
+library(here)
+library(tidyverse)
+library(tidytext)
+library(ggrepel)
+library(car)
+```
+
+
+# Preparation
+
+```{r}
+bias_raw <- readr::read_csv(here("Data", "bias_WS_Ref_TotalVocab_2025Jun18.csv"), show_col_types = FALSE)
+feat_raw <- readr::read_csv(here("Data", "LinguisticFeatures.csv"), show_col_types = FALSE)
+
+bias <- bias_raw %>% mutate(
+  language = str_squish(language),
+  form     = str_squish(form),
+  lexical_class = str_squish(lexical_class),
+  measure  = str_squish(measure))
+feat <- feat_raw %>% mutate(language = str_squish(language))
+
+langs_in_feat <- feat %>% distinct(language, Family2, predicativeAdj)
+
+bias_ws <- bias %>% filter(form == "WS") %>%
+  inner_join(langs_in_feat, by = "language") %>% 
+  subset(lexical_class != "Function Words")
+
+# Check
+bias_ws %>% count(lexical_class, measure) %>%
+  arrange(desc(n)) %>%
+  print(n = Inf)
+
+bias_ws %>% count(language, lexical_class) %>%
+  filter(n > 1)
+```
+
+
+
+# Summary measures
+
+```{r}
+freq_raw <- readr::read_csv(here("Data", "childes_frequencies.csv"), show_col_types = FALSE)
+
+summary_stats <- freq_raw %>%
+  group_by(language, lexical_category) %>%
+  summarise(
+    n = n(),
+    # freq
+    freq_mean   = mean(freq, na.rm = TRUE),
+    freq_sd     = sd(freq, na.rm = TRUE),
+    freq_median = median(freq, na.rm = TRUE),
+    freq_q1     = quantile(freq, 0.25, na.rm = TRUE),
+    freq_q3     = quantile(freq, 0.75, na.rm = TRUE),
+    freq_min    = min(freq, na.rm = TRUE),
+    freq_max    = max(freq, na.rm = TRUE),
+    # mlu
+    mlu_mean   = mean(mlu, na.rm = TRUE),
+    mlu_sd     = sd(mlu, na.rm = TRUE),
+    mlu_median = median(mlu, na.rm = TRUE),
+    mlu_q1     = quantile(mlu, 0.25, na.rm = TRUE),
+    mlu_q3     = quantile(mlu, 0.75, na.rm = TRUE),
+    mlu_min    = min(mlu, na.rm = TRUE),
+    mlu_max    = max(mlu, na.rm = TRUE),
+    .groups = "drop") %>% 
+  subset(lexical_category %in% c("nouns", "verbs", "adjectives")) %>% 
+  mutate(lexical_category = factor(lexical_category, levels = c("nouns", "verbs", "adjectives")))
+
+ggplot(summary_stats,
+       aes(x = freq_median, y = freq_mean)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", color = "grey50") +
+  facet_wrap(~ lexical_category, scales = "free") +
+  labs(
+    x = "Median frequency",
+    y = "Mean frequency",
+    title = "Mean vs Median of Frequency by Lexical Category") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+
+
+ggplot(summary_stats,
+       aes(x = mlu_median, y = mlu_mean)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", color = "grey50") +
+  facet_wrap(~ lexical_category, scales = "free") +
+  labs(
+    x = "Median MLU",
+    y = "Mean MLU",
+    title = "Mean vs Median of MLU by Lexical Category") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+```
+
+
+```{r}
+summary_wide <- summary_stats %>% 
+  select(language, lexical_category, freq_mean, mlu_mean) %>% 
+  tidyr::pivot_wider(
+    names_from  = lexical_category,
+    values_from = c(freq_mean, mlu_mean))
+
+summary_ratio <- summary_wide %>%
+  mutate(
+    # NOTE (freq):
+    # `freq_mean_*` values are already log-transformed in the source CSV.
+    # To obtain a meaningful relative-frequency measure, we therefore compute
+    # log-differences rather than ratios on the log scale.
+    # This quantity is equivalent to log(freq_X / freq_N) on the original scale.
+    # We keep the variable name `freq_ratio` for consistency with downstream code,
+    # but its interpretation is "log-relative frequency".
+    freq_ratio_verbs       = freq_mean_verbs - freq_mean_nouns,
+    freq_ratio_adjectives  = freq_mean_adjectives - freq_mean_nouns,
+    # NOTE (mlu):
+    # MLU values are not log-transformed, so simple ratios remain appropriate.
+    mlu_ratio_verbs        = mlu_mean_verbs / mlu_mean_nouns,
+    mlu_ratio_adjectives   = mlu_mean_adjectives / mlu_mean_nouns)
+
+summary_long <- summary_ratio %>%
+  transmute(
+    language,
+    # nouns
+    freq_mean_nouns,
+    mlu_mean_nouns,
+    # verbs
+    freq_mean_verbs,
+    mlu_mean_verbs,
+    freq_ratio_verbs,
+    mlu_ratio_verbs,
+    # adjectives
+    freq_mean_adjectives,
+    mlu_mean_adjectives,
+    freq_ratio_adjectives,
+    mlu_ratio_adjectives) %>%
+  tidyr::pivot_longer(
+    cols = -language,
+    names_to = c("measure", "lexical_category"),
+    names_pattern = "(freq_mean|mlu_mean|freq_ratio|mlu_ratio)_(.*)",
+    values_to = "value") %>%
+  tidyr::pivot_wider(
+    names_from  = measure,
+    values_from = value) %>%
+  mutate(
+    lexical_category = factor(
+      lexical_category,
+      levels = c("nouns", "verbs", "adjectives")),
+    # nouns -> reference category
+    # log-relative frequency = 0, ratio = 1
+    freq_ratio = ifelse(lexical_category == "nouns", 0, freq_ratio),
+    mlu_ratio  = ifelse(lexical_category == "nouns", 1, mlu_ratio))
+
+
+ggplot(
+  summary_long,
+  aes(x = freq_mean, y = freq_ratio)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean frequency",
+    y = "Frequency ratio (relative to nouns)",
+    title = "Raw Frequency vs Relative Frequency (Ratio)") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+
+ggplot(
+  summary_long,
+  aes(x = mlu_mean, y = mlu_ratio)) +
+  geom_point(alpha = 0.7, size = 2) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean MLU",
+    y = "MLU ratio (relative to nouns)",
+    title = "Raw MLU vs Relative MLU (Ratio)") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+```
+
+
+
+# Noun bias
+
+```{r}
+df_noun_raw <- summary_long %>%
+  filter(lexical_category %in% c("nouns", "verbs", "adjectives")) %>%
+  inner_join(
+    bias_ws %>%
+      filter(lexical_class == "Nouns") %>%
+      transmute(language, noun_bias = mean),
+    by = "language") %>%
+  mutate(
+    lexical_category = factor(
+      lexical_category,
+      levels = c("nouns", "verbs", "adjectives"),
+      labels = c("Nouns", "Verbs", "Adjectives")))
+
+df_noun_lr <- summary_long %>%
+  filter(lexical_category %in% c("verbs", "adjectives")) %>%
+  inner_join(
+    bias_ws %>%
+      filter(lexical_class == "Nouns") %>%
+      transmute(language, noun_bias = mean),
+    by = "language") %>%
+  mutate(
+    ratio_type = factor(
+      lexical_category,
+      levels = c("verbs", "adjectives"),
+      labels = c("Verb/Noun", "Adj/Noun")))
+
+df_noun_raw %>% distinct(language) %>% count()
+df_noun_lr %>% distinct(language) %>% count()
+```
+
+
+```{r}
+ggplot(df_noun_raw, aes(x = freq_mean, y = noun_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean frequency",
+    y = "Noun bias (mean)",
+    title = "Noun bias vs Mean Frequency (by lexical category)") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+
+
+ggplot(df_noun_raw, aes(x = mlu_mean, y = noun_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean MLU",
+    y = "Noun bias (mean)",
+    title = "Noun bias vs Mean MLU (by lexical category)") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+
+
+ggplot(df_noun_lr, aes(x = freq_ratio, y = noun_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of frequency",
+    y = "Noun bias (mean)",
+    title = "Noun bias vs Frequency Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+
+
+ggplot(df_noun_lr, aes(x = mlu_ratio, y = noun_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of MLU",
+    y = "Noun bias (mean)",
+    title = "Noun bias vs MLU Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = "bold"))
+
+
+cor_freq_raw <- df_noun_raw %>%
+  group_by(lexical_category) %>%
+  summarise(
+    n = sum(complete.cases(freq_mean, noun_bias)),
+    r = cor(freq_mean, noun_bias, use = "complete.obs"),
+    p = cor.test(freq_mean, noun_bias)$p.value,
+    .groups = "drop")
+
+cor_mlu_raw <- df_noun_raw %>%
+  group_by(lexical_category) %>%
+  summarise(
+    n = sum(complete.cases(mlu_mean, noun_bias)),
+    r = cor(mlu_mean, noun_bias, use = "complete.obs"),
+    p = cor.test(mlu_mean, noun_bias)$p.value,
+    .groups = "drop")
+
+cor_freq_ratio <- df_noun_lr %>%
+  group_by(ratio_type) %>%
+  summarise(
+    n = sum(complete.cases(freq_ratio, noun_bias)),
+    r = cor(freq_ratio, noun_bias, use = "complete.obs"),
+    p = cor.test(freq_ratio, noun_bias)$p.value,
+    .groups = "drop")
+
+cor_mlu_ratio <- df_noun_lr %>%
+  group_by(ratio_type) %>%
+  summarise(
+    n = sum(complete.cases(mlu_ratio, noun_bias)),
+    r = cor(mlu_ratio, noun_bias, use = "complete.obs"),
+    p = cor.test(mlu_ratio, noun_bias)$p.value,
+    .groups = "drop")
+
+bind_rows(
+  cor_freq_raw  %>% mutate(measure = "Mean frequency"),
+  cor_mlu_raw   %>% mutate(measure = "Mean MLU"),
+  cor_freq_ratio %>% mutate(measure = "Frequency ratio"),
+  cor_mlu_ratio  %>% mutate(measure = "MLU ratio")) %>%
+  mutate(
+    r = round(r, 2),
+    p = signif(p, 2))
+```
+
+
+```{r}
+raw_wide <- df_noun_raw %>%
+  select(language, noun_bias, lexical_category, freq_mean, mlu_mean) %>%
+  pivot_wider(
+    names_from  = lexical_category,
+    values_from = c(freq_mean, mlu_mean),
+    names_glue  = "{.value}__{lexical_category}") %>%
+  distinct(language, .keep_all = TRUE)
+
+lr_wide <- df_noun_lr %>%
+  select(language, ratio_type, freq_ratio, mlu_ratio) %>%
+  mutate(
+    ratio_key = case_when(
+      ratio_type == "Verb/Noun" ~ "VerbNoun",
+      ratio_type == "Adj/Noun"  ~ "AdjNoun",
+      TRUE ~ as.character(ratio_type))) %>%
+  pivot_wider(
+    id_cols    = language, 
+    names_from  = ratio_key,
+    values_from = c(freq_ratio, mlu_ratio),
+    names_glue  = "{.value}__{ratio_key}") %>%
+  distinct(language, .keep_all = TRUE)
+
+df_noun_model <- raw_wide %>% left_join(lr_wide, by = "language")
+
+df_noun_model_z <- df_noun_model %>%
+  mutate(
+    noun_bias_z = as.numeric(scale(noun_bias)),
+    # freq raw
+    freq_noun_z = as.numeric(scale(freq_mean__Nouns)),
+    freq_verb_z = as.numeric(scale(freq_mean__Verbs)),
+    freq_adj_z  = as.numeric(scale(freq_mean__Adjectives)),
+    # freq ratio
+    freq_ratio_verb_z = as.numeric(scale(freq_ratio__VerbNoun)),
+    freq_ratio_adj_z  = as.numeric(scale(freq_ratio__AdjNoun)),
+    # mlu raw
+    mlu_noun_z = as.numeric(scale(mlu_mean__Nouns)),
+    mlu_verb_z = as.numeric(scale(mlu_mean__Verbs)),
+    mlu_adj_z  = as.numeric(scale(mlu_mean__Adjectives)),
+    # mlu ratio
+    mlu_ratio_verb_z = as.numeric(scale(mlu_ratio__VerbNoun)),
+    mlu_ratio_adj_z  = as.numeric(scale(mlu_ratio__AdjNoun)))
+
+# -----------------------------
+# Frequency: Absolute only vs Absolute+Relative）
+# -----------------------------
+m_freq_abs_only <- lm(noun_bias_z ~ freq_noun_z + freq_verb_z + freq_adj_z,
+  data = df_noun_model_z)
+
+m_freq_abs_rel <- lm(noun_bias_z ~ freq_noun_z + freq_ratio_verb_z + freq_ratio_adj_z,
+  data = df_noun_model_z)
+
+tibble(family = "freq",
+  model  = c("Absolute only (raw noun+verb+adj)", "Absolute + Relative (raw noun + ratios)"),
+  AIC    = c(AIC(m_freq_abs_only), AIC(m_freq_abs_rel)),
+  BIC    = c(BIC(m_freq_abs_only), BIC(m_freq_abs_rel)),
+  R2     = c(summary(m_freq_abs_only)$r.squared, summary(m_freq_abs_rel)$r.squared),
+  adj_R2 = c(summary(m_freq_abs_only)$adj.r.squared, summary(m_freq_abs_rel)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_freq_abs_rel)
+vif(m_freq_abs_rel)
+
+summary(m_freq_abs_only)
+vif(m_freq_abs_only)
+
+# -----------------------------
+# 6) MLU: 2 models（Absolute only vs Absolute+Relative）
+# -----------------------------
+m_mlu_abs_only <- lm(noun_bias_z ~ mlu_noun_z + mlu_verb_z + mlu_adj_z,
+  data = df_noun_model_z)
+
+m_mlu_abs_rel <- lm(noun_bias_z ~ mlu_noun_z + mlu_ratio_verb_z + mlu_ratio_adj_z,
+  data = df_noun_model_z)
+
+tibble(family = "mlu",
+  model  = c("Absolute only (raw noun+verb+adj)", "Absolute + Relative (raw noun + ratios)"),
+  AIC    = c(AIC(m_mlu_abs_only), AIC(m_mlu_abs_rel)),
+  BIC    = c(BIC(m_mlu_abs_only), BIC(m_mlu_abs_rel)),
+  R2     = c(summary(m_mlu_abs_only)$r.squared, summary(m_mlu_abs_rel)$r.squared),
+  adj_R2 = c(summary(m_mlu_abs_only)$adj.r.squared, summary(m_mlu_abs_rel)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_mlu_abs_rel)
+vif(m_mlu_abs_rel)
+
+summary(m_mlu_abs_only)
+vif(m_mlu_abs_only)
+```
+
+
+
+# Verbs
+
+```{r}
+df_verb_raw <- summary_long %>%
+  filter(lexical_category %in% c("nouns", "verbs", "adjectives")) %>%
+  inner_join(
+    bias_ws %>%
+      filter(lexical_class == "Verbs") %>%
+      transmute(language, verb_bias = mean),
+    by = "language") %>%
+  mutate(
+    lexical_category = factor(
+      lexical_category,
+      levels = c("nouns", "verbs", "adjectives"),
+      labels = c("Nouns", "Verbs", "Adjectives")))
+
+df_verb_lr <- summary_long %>%
+  filter(lexical_category %in% c("verbs", "adjectives")) %>%
+  inner_join(
+    bias_ws %>%
+      filter(lexical_class == "Verbs") %>%
+      transmute(language, verb_bias = mean),
+    by = "language") %>%
+  mutate(
+    ratio_type = factor(
+      lexical_category,
+      levels = c("verbs", "adjectives"),
+      labels = c("Verb/Noun", "Adj/Noun")))
+```
+
+
+```{r}
+ggplot(df_verb_raw, aes(x = freq_mean, y = verb_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean frequency",
+    y = "Verb bias (mean)",
+    title = "Verb bias vs Mean Frequency (by lexical category)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_verb_raw, aes(x = mlu_mean, y = verb_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean MLU",
+    y = "Verb bias (mean)",
+    title = "Verb bias vs Mean MLU (by lexical category)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_verb_lr, aes(x = freq_ratio, y = verb_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of frequency",
+    y = "Verb bias (mean)",
+    title = "Verb bias vs Frequency Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_verb_lr, aes(x = mlu_ratio, y = verb_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of MLU",
+    y = "Verb bias (mean)",
+    title = "Verb bias vs MLU Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+```
+
+
+```{r}
+raw_wide <- df_verb_raw %>%
+  select(language, verb_bias, lexical_category, freq_mean, mlu_mean) %>%
+  pivot_wider(
+    names_from  = lexical_category,
+    values_from = c(freq_mean, mlu_mean),
+    names_glue  = "{.value}__{lexical_category}") %>%
+  distinct(language, .keep_all = TRUE)
+
+lr_wide <- df_verb_lr %>%
+  select(language, ratio_type, freq_ratio, mlu_ratio) %>%
+  mutate(
+    ratio_key = case_when(
+      ratio_type == "Verb/Noun" ~ "VerbNoun",
+      ratio_type == "Adj/Noun"  ~ "AdjNoun",
+      TRUE ~ as.character(ratio_type))) %>%
+  pivot_wider(
+    id_cols     = language,
+    names_from  = ratio_key,
+    values_from = c(freq_ratio, mlu_ratio),
+    names_glue  = "{.value}__{ratio_key}") %>%
+  distinct(language, .keep_all = TRUE)
+
+df_verb_model <- raw_wide %>% left_join(lr_wide, by = "language")
+
+df_verb_model_z <- df_verb_model %>%
+  mutate(
+    verb_bias_z = as.numeric(scale(verb_bias)),
+    # freq raw
+    freq_noun_z = as.numeric(scale(freq_mean__Nouns)),
+    freq_verb_z = as.numeric(scale(freq_mean__Verbs)),
+    freq_adj_z  = as.numeric(scale(freq_mean__Adjectives)),
+    # freq ratio
+    freq_ratio_verb_z = as.numeric(scale(freq_ratio__VerbNoun)),
+    freq_ratio_adj_z  = as.numeric(scale(freq_ratio__AdjNoun)),
+    # mlu raw
+    mlu_noun_z = as.numeric(scale(mlu_mean__Nouns)),
+    mlu_verb_z = as.numeric(scale(mlu_mean__Verbs)),
+    mlu_adj_z  = as.numeric(scale(mlu_mean__Adjectives)),
+    # mlu ratio
+    mlu_ratio_verb_z = as.numeric(scale(mlu_ratio__VerbNoun)),
+    mlu_ratio_adj_z  = as.numeric(scale(mlu_ratio__AdjNoun)))
+
+
+# -----------------------------
+# Frequency: Absolute only vs Absolute+Relative
+# -----------------------------
+m_freq_abs_only <- lm(verb_bias_z ~ freq_noun_z + freq_verb_z + freq_adj_z,
+  data = df_verb_model_z)
+
+m_freq_abs_rel <- lm(verb_bias_z ~ freq_noun_z + freq_ratio_verb_z + freq_ratio_adj_z,
+  data = df_verb_model_z)
+
+tibble(
+  family = "freq",
+  model  = c("Absolute only (raw noun+verb+adj)", "Absolute + Relative (raw noun + ratios)"),
+  AIC    = c(AIC(m_freq_abs_only), AIC(m_freq_abs_rel)),
+  BIC    = c(BIC(m_freq_abs_only), BIC(m_freq_abs_rel)),
+  R2     = c(summary(m_freq_abs_only)$r.squared, summary(m_freq_abs_rel)$r.squared),
+  adj_R2 = c(summary(m_freq_abs_only)$adj.r.squared, summary(m_freq_abs_rel)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_freq_abs_rel)
+vif(m_freq_abs_rel)
+
+summary(m_freq_abs_only)
+vif(m_freq_abs_only)
+
+
+# -----------------------------
+# MLU: Absolute only vs Absolute+Relative
+# -----------------------------
+m_mlu_abs_only <- lm(verb_bias_z ~ mlu_noun_z + mlu_verb_z + mlu_adj_z,
+  data = df_verb_model_z)
+
+m_mlu_abs_rel <- lm(verb_bias_z ~ mlu_noun_z + mlu_ratio_verb_z + mlu_ratio_adj_z,
+  data = df_verb_model_z)
+
+tibble(
+  family = "mlu",
+  model  = c("Absolute only (raw noun+verb+adj)", "Absolute + Relative (raw noun + ratios)"),
+  AIC    = c(AIC(m_mlu_abs_only), AIC(m_mlu_abs_rel)),
+  BIC    = c(BIC(m_mlu_abs_only), BIC(m_mlu_abs_rel)),
+  R2     = c(summary(m_mlu_abs_only)$r.squared, summary(m_mlu_abs_rel)$r.squared),
+  adj_R2 = c(summary(m_mlu_abs_only)$adj.r.squared, summary(m_mlu_abs_rel)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_mlu_abs_rel)
+vif(m_mlu_abs_rel)
+
+summary(m_mlu_abs_only)
+vif(m_mlu_abs_only)
+```
+
+
+
+# Adjectives
+
+```{r}
+df_adj_raw <- summary_long %>%
+  filter(lexical_category %in% c("nouns", "verbs", "adjectives")) %>%
+  inner_join(
+    bias_ws %>%
+      filter(lexical_class == "Adjectives") %>%
+      transmute(language, adj_bias = mean),
+    by = "language") %>%
+  mutate(
+    lexical_category = factor(
+      lexical_category,
+      levels = c("nouns", "verbs", "adjectives"),
+      labels = c("Nouns", "Verbs", "Adjectives")))
+
+df_adj_lr <- summary_long %>%
+  filter(lexical_category %in% c("verbs", "adjectives")) %>%
+  inner_join(
+    bias_ws %>%
+      filter(lexical_class == "Adjectives") %>%
+      transmute(language, adj_bias = mean),
+    by = "language") %>%
+  mutate(
+    ratio_type = factor(
+      lexical_category,
+      levels = c("verbs", "adjectives"),
+      labels = c("Verb/Noun", "Adj/Noun")))
+```
+
+
+```{r}
+ggplot(df_adj_raw, aes(x = freq_mean, y = adj_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean frequency",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs Mean Frequency (by lexical category)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_adj_raw, aes(x = mlu_mean, y = adj_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean MLU",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs Mean MLU (by lexical category)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_adj_lr, aes(x = freq_ratio, y = adj_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of frequency",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs Frequency Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_adj_lr, aes(x = mlu_ratio, y = adj_bias)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of MLU",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs MLU Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+```
+
+
+```{r}
+raw_wide <- df_adj_raw %>%
+  select(language, adj_bias, lexical_category, freq_mean, mlu_mean) %>%
+  pivot_wider(
+    names_from  = lexical_category,
+    values_from = c(freq_mean, mlu_mean),
+    names_glue  = "{.value}__{lexical_category}") %>%
+  distinct(language, .keep_all = TRUE)
+
+lr_wide <- df_adj_lr %>%
+  select(language, ratio_type, freq_ratio, mlu_ratio) %>%
+  mutate(
+    ratio_key = case_when(
+      ratio_type == "Verb/Noun" ~ "VerbNoun",
+      ratio_type == "Adj/Noun"  ~ "AdjNoun",
+      TRUE ~ as.character(ratio_type))) %>%
+  pivot_wider(
+    id_cols    = language, 
+    names_from  = ratio_key,
+    values_from = c(freq_ratio, mlu_ratio),
+    names_glue  = "{.value}__{ratio_key}") %>%
+  distinct(language, .keep_all = TRUE)
+
+df_adj_model <- raw_wide %>% left_join(lr_wide, by = "language")
+
+df_adj_model_z <- df_adj_model %>%
+  mutate(
+    adj_bias_z = as.numeric(scale(adj_bias)),
+    freq_noun_z = as.numeric(scale(freq_mean__Nouns)),
+    freq_verb_z = as.numeric(scale(freq_mean__Verbs)),
+    freq_adj_z  = as.numeric(scale(freq_mean__Adjectives)),
+    freq_ratio_verb_z = as.numeric(scale(freq_ratio__VerbNoun)),
+    freq_ratio_adj_z  = as.numeric(scale(freq_ratio__AdjNoun)),
+    mlu_noun_z = as.numeric(scale(mlu_mean__Nouns)),
+    mlu_verb_z = as.numeric(scale(mlu_mean__Verbs)),
+    mlu_adj_z  = as.numeric(scale(mlu_mean__Adjectives)),
+    mlu_ratio_verb_z = as.numeric(scale(mlu_ratio__VerbNoun)),
+    mlu_ratio_adj_z  = as.numeric(scale(mlu_ratio__AdjNoun)))
+
+
+# -----------------------------
+# Frequency: Absolute only vs Absolute+Relative
+# -----------------------------
+m_freq_abs_only <- lm(adj_bias_z ~ freq_noun_z + freq_verb_z + freq_adj_z,
+  data = df_adj_model_z)
+
+m_freq_abs_rel <- lm(adj_bias_z ~ freq_noun_z + freq_ratio_verb_z + freq_ratio_adj_z,
+  data = df_adj_model_z)
+
+tibble(family = "freq",
+  model  = c("Absolute only (raw noun+verb+adj)", "Absolute + Relative (raw noun + ratios)"),
+  AIC    = c(AIC(m_freq_abs_only), AIC(m_freq_abs_rel)),
+  BIC    = c(BIC(m_freq_abs_only), BIC(m_freq_abs_rel)),
+  R2     = c(summary(m_freq_abs_only)$r.squared, summary(m_freq_abs_rel)$r.squared),
+  adj_R2 = c(summary(m_freq_abs_only)$adj.r.squared, summary(m_freq_abs_rel)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_freq_abs_rel)
+vif(m_freq_abs_rel)
+
+summary(m_freq_abs_only)
+vif(m_freq_abs_only)
+
+
+# -----------------------------
+# MLU: Absolute only vs Absolute+Relative
+# -----------------------------
+m_mlu_abs_only <- lm(adj_bias_z ~ mlu_noun_z + mlu_verb_z + mlu_adj_z,
+  data = df_adj_model_z)
+
+m_mlu_abs_rel <- lm(adj_bias_z ~ mlu_noun_z + mlu_ratio_verb_z + mlu_ratio_adj_z,
+  data = df_adj_model_z)
+
+tibble(family = "mlu",
+  model  = c("Absolute only (raw noun+verb+adj)", "Absolute + Relative (raw noun + ratios)"),
+  AIC    = c(AIC(m_mlu_abs_only), AIC(m_mlu_abs_rel)),
+  BIC    = c(BIC(m_mlu_abs_only), BIC(m_mlu_abs_rel)),
+  R2     = c(summary(m_mlu_abs_only)$r.squared, summary(m_mlu_abs_rel)$r.squared),
+  adj_R2 = c(summary(m_mlu_abs_only)$adj.r.squared, summary(m_mlu_abs_rel)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_mlu_abs_rel)
+vif(m_mlu_abs_rel)
+
+summary(m_mlu_abs_only)
+vif(m_mlu_abs_only)
+```
+
+
+```{r}
+df_adj_raw_2 <- df_adj_raw %>% left_join(feat_raw %>% select(language, predicativeAdj), by="language")
+df_adj_lr_2 <- df_adj_lr %>% left_join(feat_raw %>% select(language, predicativeAdj), by="language")
+
+
+ggplot(df_adj_raw_2, aes(x = freq_mean, y = adj_bias, color=predicativeAdj)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8, alpha = 0.2) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean frequency",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs Mean Frequency (by lexical category)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_adj_raw_2, aes(x = mlu_mean, y = adj_bias, color=predicativeAdj)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8, alpha = 0.2) +
+  facet_wrap(~ lexical_category, scales = "free_x") +
+  labs(
+    x = "Mean MLU",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs Mean MLU (by lexical category)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_adj_lr_2, aes(x = freq_ratio, y = adj_bias, color=predicativeAdj)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8, alpha = 0.2) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of frequency",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs Frequency Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+
+
+ggplot(df_adj_lr_2, aes(x = mlu_ratio, y = adj_bias, color=predicativeAdj)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey50") +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 0.8, alpha = 0.2) +
+  facet_wrap(~ ratio_type, scales = "free_x") +
+  labs(
+    x = "Ratio of MLU",
+    y = "Adjective bias (mean)",
+    title = "Adjective bias vs MLU Ratio (relative to nouns)") +
+  theme_bw() +
+  theme(strip.background = element_blank(),
+        strip.text = element_text(face = "bold"))
+```
+
+
+```{r}
+raw_wide <- df_adj_raw_2 %>%
+  select(language, adj_bias, lexical_category, freq_mean, mlu_mean, predicativeAdj) %>%
+  pivot_wider(
+    names_from  = lexical_category,
+    values_from = c(freq_mean, mlu_mean),
+    names_glue  = "{.value}__{lexical_category}") %>%
+  distinct(language, .keep_all = TRUE)
+
+lr_wide <- df_adj_lr_2 %>%
+  select(language, ratio_type, freq_ratio, mlu_ratio) %>%
+  mutate(
+    ratio_key = case_when(
+      ratio_type == "Verb/Noun" ~ "VerbNoun",
+      ratio_type == "Adj/Noun"  ~ "AdjNoun",
+      TRUE ~ as.character(ratio_type))) %>%
+  pivot_wider(
+    id_cols    = language, 
+    names_from  = ratio_key,
+    values_from = c(freq_ratio, mlu_ratio),
+    names_glue  = "{.value}__{ratio_key}") %>%
+  distinct(language, .keep_all = TRUE)
+
+df_adj_model <- raw_wide %>% left_join(lr_wide, by = "language")
+
+df_adj_model_z <- df_adj_model %>%
+  mutate(
+    adj_bias_z = as.numeric(scale(adj_bias)),
+    freq_noun_z = as.numeric(scale(freq_mean__Nouns)),
+    freq_verb_z = as.numeric(scale(freq_mean__Verbs)),
+    freq_adj_z  = as.numeric(scale(freq_mean__Adjectives)),
+    freq_ratio_verb_z = as.numeric(scale(freq_ratio__VerbNoun)),
+    freq_ratio_adj_z  = as.numeric(scale(freq_ratio__AdjNoun)),
+    mlu_noun_z = as.numeric(scale(mlu_mean__Nouns)),
+    mlu_verb_z = as.numeric(scale(mlu_mean__Verbs)),
+    mlu_adj_z  = as.numeric(scale(mlu_mean__Adjectives)),
+    mlu_ratio_verb_z = as.numeric(scale(mlu_ratio__VerbNoun)),
+    mlu_ratio_adj_z  = as.numeric(scale(mlu_ratio__AdjNoun)))
+
+
+# -----------------------------
+# Frequency
+# -----------------------------
+m_freq_1 <- lm(adj_bias_z ~ predicativeAdj * (freq_noun_z + freq_verb_z + freq_adj_z),
+  data = df_adj_model_z)
+
+m_freq_2 <- lm(adj_bias_z ~ predicativeAdj + (freq_noun_z + freq_verb_z + freq_adj_z),
+  data = df_adj_model_z)
+
+m_freq_3 <- lm(adj_bias_z ~ freq_noun_z + freq_verb_z + freq_adj_z,
+  data = df_adj_model_z)
+
+tibble(family = "freq",
+  model  = c("Interaction (pred Adj)", "Main effect (pred Adj)",  "No main effect (pred Adj)"),
+  AIC    = c(AIC(m_freq_1), AIC(m_freq_2), AIC(m_freq_3)),
+  BIC    = c(BIC(m_freq_1), BIC(m_freq_2), BIC(m_freq_3)),
+  R2     = c(summary(m_freq_1)$r.squared, summary(m_freq_2)$r.squared, summary(m_freq_3)$r.squared),
+  adj_R2 = c(summary(m_freq_1)$adj.r.squared, summary(m_freq_2)$adj.r.squared, summary(m_freq_3)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC),
+    deltaAdj_R2 = adj_R2 - max(adj_R2)) %>%
+  arrange(AIC)
+
+summary(m_freq_1)
+vif(m_freq_1)
+
+summary(m_freq_2)
+vif(m_freq_2)
+Anova(m_freq_2)
+
+summary(m_freq_3)
+vif(m_freq_3)
+
+
+# -----------------------------
+# MLU
+# -----------------------------
+m_mlu_1 <- lm(adj_bias_z ~ predicativeAdj * (mlu_noun_z + mlu_verb_z + mlu_adj_z),
+  data = df_adj_model_z)
+
+m_mlu_2 <- lm(adj_bias_z ~ predicativeAdj + (mlu_noun_z + mlu_verb_z + mlu_adj_z),
+  data = df_adj_model_z)
+
+m_mlu_3 <- lm(adj_bias_z ~ mlu_noun_z + mlu_verb_z + mlu_adj_z,
+  data = df_adj_model_z)
+
+tibble(family = "mlu",
+  model  = c("Interaction (pred Adj)", "Main effect (pred Adj)",  "No main effect (pred Adj)"),
+  AIC    = c(AIC(m_mlu_1), AIC(m_mlu_2), AIC(m_mlu_3)),
+  BIC    = c(BIC(m_mlu_1), BIC(m_mlu_2), BIC(m_mlu_3)),
+  R2     = c(summary(m_mlu_1)$r.squared, summary(m_mlu_2)$r.squared, summary(m_mlu_3)$r.squared),
+  adj_R2 = c(summary(m_mlu_1)$adj.r.squared, summary(m_mlu_2)$adj.r.squared, summary(m_mlu_3)$adj.r.squared)) %>%
+  mutate(
+    deltaAIC = AIC - min(AIC),
+    deltaBIC = BIC - min(BIC)) %>%
+  arrange(AIC)
+
+summary(m_mlu_1)
+vif(m_mlu_1)
+
+summary(m_mlu_2)
+vif(m_mlu_2)
+Anova(m_mlu_2)
+
+summary(m_mlu_3)
+vif(m_mlu_3)
+```
+
+
+# Visualization
+
+```{r}
+df_bias9 <- bind_rows(
+  df_noun_raw %>% transmute(language, lexical_category, freq_mean, bias = noun_bias, bias_type = "Noun bias"),
+  df_verb_raw %>% transmute(language, lexical_category, freq_mean, bias = verb_bias, bias_type = "Verb bias"),
+  df_adj_raw  %>% transmute(language, lexical_category, freq_mean, bias = adj_bias,  bias_type = "Adjective bias")) %>%
+  mutate(
+    bias_type = factor(bias_type, levels = c("Noun bias", "Verb bias", "Adjective bias")),
+    lexical_category = factor(lexical_category, levels = c("Nouns", "Verbs", "Adjectives")))
+
+ggplot(df_bias9, aes(x = freq_mean, y = bias, color = bias_type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1, fill="gray68", alpha=0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(breaks = c(-9.5, -8.5, -7.5, -6.5)) +
+  scale_color_manual(values = c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")) +
+  labs(
+    x = "Mean frequency (log)",
+    y = "Lexical category bias") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 4, 4))
+# ggsave("freq_preds.png", width = 4.8, height = 5.2, dpi = 320, bg = "white")
+```
+
+
+```{r}
+df_bias9_nv <- bind_rows(
+  df_noun_raw %>% transmute(language, lexical_category, freq_mean, bias = noun_bias, bias_type = "Noun bias"),
+  df_verb_raw %>% transmute(language, lexical_category, freq_mean, bias = verb_bias, bias_type = "Verb bias")) %>%
+  mutate(
+    bias_type = factor(bias_type, levels = c("Noun bias", "Verb bias", "Adjective bias")),
+    lexical_category = factor(lexical_category, levels = c("Nouns", "Verbs", "Adjectives")))
+
+df_bias9_adj <- df_adj_raw_2 %>%
+  transmute(language, lexical_category, freq_mean, bias = adj_bias, predicativeAdj) %>%
+  mutate(
+    bias_type = factor("Adjective bias", levels = c("Noun bias", "Verb bias", "Adjective bias")),
+    lexical_category = factor(lexical_category, levels = c("Nouns", "Verbs", "Adjectives")),
+    predicativeAdj = factor(predicativeAdj, levels = c("Present", "Absent"), labels = c("present", "absent")))
+
+
+ggplot() +
+  geom_point(data = df_bias9_nv %>% filter(bias_type == "Noun bias"), aes(x = freq_mean, y = bias),
+             color = "#2C7BB6", size = 2, alpha = 0.8) +
+  geom_smooth(data = df_bias9_nv %>% filter(bias_type == "Noun bias"),
+              aes(x = freq_mean, y = bias),
+              method = "lm", se = TRUE, linewidth = 1, fill = "gray73", alpha = 0.3,
+              color = "#2C7BB6") +
+  geom_point(data = df_bias9_nv %>% filter(bias_type == "Verb bias"),
+             aes(x = freq_mean, y = bias),
+             color = "#1A9850", size = 2, alpha = 0.8) +
+  geom_smooth(data = df_bias9_nv %>% filter(bias_type == "Verb bias"),
+              aes(x = freq_mean, y = bias),
+              method = "lm", se = TRUE, linewidth = 1, fill = "gray73", alpha = 0.3,
+              color = "#1A9850") +
+  geom_point(data = df_bias9_adj, aes(x = freq_mean, y = bias, color = predicativeAdj, shape = predicativeAdj),
+             size = 2, alpha = 0.8, show.legend = TRUE) +
+  geom_smooth(data = df_bias9_adj, aes(x = freq_mean, y = bias, color = predicativeAdj),
+              method = "lm", se = TRUE, linewidth = 1, fill = "gray78", alpha = 0.3, show.legend = FALSE) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(breaks = c(-9.5, -8.5, -7.5, -6.5)) +
+  scale_color_manual(
+    values = c(
+      "present" = "#6B8A1E",
+      "absent"  = "#D95F02"),
+    breaks = c("present", "absent"),
+    name = "Verbal adjectives") +
+  scale_shape_manual(
+    values = c("present" = 16, "absent" = 17),
+    breaks = c("present", "absent"),
+    name = "Verbal adjectives") +
+  labs(
+    x = "Mean frequency (log)",
+    y = "Lexical category bias") +
+  guides(
+    color = guide_legend(override.aes = list(size = 2.2, alpha = 1)),
+    shape = guide_legend(override.aes = list(size = 2.2, alpha = 1))) +
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.title = element_text(size = 10, color = "gray15"),
+    legend.text  = element_text(size = 10, color = "gray15"),
+    legend.key.height = unit(9, "pt"),
+    legend.key.width  = unit(12, "pt"),
+    legend.box.spacing = unit(0, "pt"),
+    legend.margin = margin(t = 0, r = 0, b = 0, l = 0),
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color = "gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color = "gray15"),
+    axis.title.y = element_text(size = 12, color = "gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color = "gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 2, 4))
+ggsave(here("Figures", "freq_preds.png"), width = 4.8, height = 5.2, dpi = 320, bg = "white")
+
+df_freq <- df_bias9_nv %>% mutate(predicativeAdj = NA) %>% rbind(df_bias9_adj)
+write.csv(df_freq, here("Results", "df_freq.csv"), row.names=FALSE)
+write.csv(df_adj_model_z, here("Results", "df_freq_z.csv"), row.names=FALSE)
+```
+
+
+```{r}
+abbr_map <- c(
+  "American"    = "US",
+  "Australian"  = "AUS",
+  "British"     = "UK",
+  "Irish"       = "IRL",
+  "European"    = "EU",
+  "Argentinian" = "ARG",
+  "Mexican"     = "MEX",
+  "Peruvian"    = "PER",
+  "French"      = "FR",
+  "Quebecois"   = "QC",
+  "Beijing"     = "BJ",
+  "Taiwanese"   = "TW")
+
+targets <- names(abbr_map)
+
+df_lab <- df_bias9 %>%
+  filter(language!="Irish" & language!="Portuguese (European)") %>% 
+  mutate(
+    # "English (American)" -> "American"
+    region = str_match(language, "\\(([^)]+)\\)")[, 2],
+    region = if_else(is.na(region), language, region),
+    label  = unname(abbr_map[region])) %>%
+  filter(region %in% targets) %>%
+  group_by(language, lexical_category) %>%
+  # slice(1) %>%
+  ungroup()
+
+df_lab %>% distinct(language, region, label) %>% arrange(language)
+
+
+#=== English
+df_lab_tmp <- df_lab %>% dplyr::filter(grepl("^English", language))
+
+ggplot(df_bias9, aes(x = freq_mean, y = bias, color = bias_type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1, fill="gray68", alpha=0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(breaks = c(-9.5, -8.5, -7.5, -6.5)) +
+  scale_color_manual(values = c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")) +
+  labs(x = "Mean frequency (log)", y = "Lexical category bias") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 4, 4)) +
+  geom_text_repel(
+    data = df_lab_tmp,
+    aes(label = label),
+    inherit.aes = TRUE,
+    size = 3.2,
+    color = "grey10",
+    min.segment.length = 0,
+    box.padding = 0.25,
+    point.padding = 0.15,
+    force = 0.8,
+    max.overlaps = Inf,
+    seed = 1) +
+  coord_cartesian(clip = "off")
+
+
+#=== Spanish
+df_lab_tmp <- df_lab %>% dplyr::filter(grepl("^Spanish", language))
+
+ggplot(df_bias9, aes(x = freq_mean, y = bias, color = bias_type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1, fill="gray68", alpha=0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(breaks = c(-9.5, -8.5, -7.5, -6.5)) +
+  scale_color_manual(values = c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")) +
+  labs(x = "Mean frequency (log)", y = "Lexical category bias") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 4, 4)) +
+  geom_text_repel(
+    data = df_lab_tmp,
+    aes(label = label),
+    inherit.aes = TRUE,
+    size = 3.2,
+    color = "grey10",
+    min.segment.length = 0,
+    box.padding = 0.25,
+    point.padding = 0.15,
+    force = 0.8,
+    max.overlaps = Inf,
+    seed = 1) +
+  coord_cartesian(clip = "off")
+
+
+#=== French
+df_lab_tmp <- df_lab %>% dplyr::filter(grepl("^French", language))
+
+ggplot(df_bias9, aes(x = freq_mean, y = bias, color = bias_type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1, fill="gray68", alpha=0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(breaks = c(-9.5, -8.5, -7.5, -6.5)) +
+  scale_color_manual(values = c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")) +
+  labs(x = "Mean frequency (log)", y = "Lexical category bias") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 4, 4)) +
+  geom_text_repel(
+    data = df_lab_tmp,
+    aes(label = label),
+    inherit.aes = TRUE,
+    size = 3.2,
+    color = "grey10",
+    min.segment.length = 0,
+    box.padding = 0.25,
+    point.padding = 0.15,
+    force = 0.8,
+    max.overlaps = Inf,
+    seed = 1) +
+  coord_cartesian(clip = "off")
+
+
+#=== Mandarin
+df_lab_tmp <- df_lab %>% dplyr::filter(grepl("^Mandarin", language))
+
+ggplot(df_bias9, aes(x = freq_mean, y = bias, color = bias_type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1, fill="gray68", alpha=0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(breaks = c(-9.5, -8.5, -7.5, -6.5)) +
+  scale_color_manual(values = c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")) +
+  labs(x = "Mean frequency (log)", y = "Lexical category bias") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 4, 4)) +
+  geom_text_repel(
+    data = df_lab_tmp,
+    aes(label = label),
+    inherit.aes = TRUE,
+    size = 3.2,
+    color = "grey10",
+    min.segment.length = 0,
+    box.padding = 0.25,
+    point.padding = 0.15,
+    force = 0.8,
+    max.overlaps = Inf,
+    seed = 1) +
+  coord_cartesian(clip = "off")
+```
+
+
+```{r}
+df_bias9_ratio2 <- bind_rows(
+  df_noun_raw %>% transmute(language, lexical_category, bias = noun_bias, bias_type = "Nouns", freq_mean),
+  df_verb_raw %>% transmute(language, lexical_category, bias = verb_bias, bias_type = "Verbs", freq_mean),
+  df_adj_raw  %>% transmute(language, lexical_category, bias = adj_bias,  bias_type = "Adjectives", freq_mean)) %>%
+  mutate(
+    bias_type = factor(bias_type, levels = c("Nouns", "Verbs", "Adjectives")),
+    lexical_category = factor(lexical_category, levels = c("Nouns", "Verbs", "Adjectives"))) %>%
+  left_join(
+    df_noun_lr %>% 
+      select(language, ratio_type, freq_ratio) %>%
+      mutate(
+        lexical_category = case_when(
+          ratio_type == "Verb/Noun" ~ "Verbs",
+          ratio_type == "Adj/Noun"  ~ "Adjectives")) %>%
+      select(language, lexical_category, freq_ratio),
+    by = c("language", "lexical_category")) %>%
+  mutate(
+    x = case_when(
+      lexical_category == "Nouns" ~ freq_mean,
+      lexical_category %in% c("Verbs", "Adjectives") ~ freq_ratio)) %>% 
+  mutate(
+    lexical_category = factor(lexical_category, levels = c("Nouns", "Verbs", "Adjectives")),
+    bias_type = factor(bias_type, levels = c("Nouns", "Verbs", "Adjectives"))) %>% 
+  mutate(
+    lexical_category = factor(
+      lexical_category,
+      levels = c("Nouns", "Verbs", "Adjectives"),
+      labels = c("Nouns\n(raw)", "Verbs\n(ratio)", "Adjectives\n(ratio)")))
+
+
+
+ggplot(df_bias9_ratio2, aes(x = x, y = bias, color = bias_type)) +
+  geom_point(size = 2, alpha = 0.8) +
+  geom_smooth(method = "lm", se = TRUE, linewidth = 1, fill="gray68", alpha=0.3) +
+  geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.75, color = "grey35") +
+  facet_grid(bias_type ~ lexical_category, scales = "free") +
+  scale_x_continuous(n.breaks = 4) +
+  scale_color_manual(values = c("Nouns" = "#2C7BB6", "Verbs" = "#1A9850", "Adjectives" = "#D95F02")) +
+  labs(
+    x = "Frequency (log for nouns; ratio to nouns for verbs/adjectives)",
+    y = "Lexical category bias") +
+  theme_bw() +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(face = "bold", size = 13),
+    strip.background = element_rect(fill = "grey90", color = NA),
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color="gray15", lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color="gray15"),
+    axis.title.y = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.title.x = element_text(size = 12, color="gray15", margin = margin(t = 2)),
+    axis.ticks.x = element_blank(),
+    panel.spacing.x = unit(5, "pt"),
+    plot.margin = margin(4, 4, 4, 4))
+# ggsave("freq_preds_ratio.png", width = 4.8, height = 5.2, dpi = 320, bg = "white")
+```
+

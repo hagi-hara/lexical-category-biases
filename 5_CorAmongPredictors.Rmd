@@ -1,0 +1,245 @@
+---
+title: "PlotBiases"
+output: html_document
+date: "2026-01-20"
+---
+
+
+```{r}
+library(here)
+library(tidyverse)
+library(tidytext)
+library(ggrepel)
+library(car)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(GGally)
+```
+
+
+# Preparation
+
+```{r}
+bias_raw <- readr::read_csv(here("Data", "bias_WS_Ref_TotalVocab_2025Jun18.csv"), show_col_types = FALSE)
+feat_raw <- readr::read_csv(here("Data", "LinguisticFeatures.csv"), show_col_types = FALSE)
+
+bias <- bias_raw %>% mutate(
+  language = str_squish(language),
+  form     = str_squish(form),
+  lexical_class = str_squish(lexical_class),
+  measure  = str_squish(measure))
+feat <- feat_raw %>% mutate(language = str_squish(language))
+
+bias_ws <- bias %>% filter(form == "WS") %>%
+  inner_join(feat, by = "language") %>% 
+  subset(lexical_class != "Function Words")
+
+# Check
+bias_ws %>% count(lexical_class, measure) %>%
+  arrange(desc(n)) %>%
+  print(n = Inf)
+
+bias_ws %>% count(language, lexical_class) %>%
+  filter(n > 1)
+```
+
+
+
+# Linguistic features and frequency (only those that showed significant effects)
+
+```{r}
+df_freq_z <- read.csv(here("Results", "df_freq_z.csv"), header=TRUE)
+df_freq_z <- df_freq_z %>% select(language, starts_with("freq_mean"))
+
+bias_ws <- bias_ws %>% select(-order, -lexical_class, -mean, -ci_lower, -ci_upper) %>% inner_join(df_freq_z) %>% 
+  distinct()
+
+df_ling_freq <- bias_ws %>% 
+  pivot_longer(starts_with("freq_mean"), names_sep = "__", 
+               names_to = c("tmp", "Category"), values_to = "mean_freq") %>% 
+  select(-tmp) %>% 
+  mutate(Category = factor(Category, levels =c("Nouns", "Verbs", "Adjectives")))
+
+
+#== Case position
+
+df_ling_freq %>%
+  ggplot(aes(x = posCaseAffix, y = mean_freq, fill = posCaseAffix)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% subset(posCaseAffix %in% c("Absent", "CaseSuffixes")) %>% 
+  group_by(Category, posCaseAffix) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * posCaseAffix + (1|language), 
+     data = df_ling_freq %>% subset(posCaseAffix %in% c("Absent", "CaseSuffixes")))
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ posCaseAffix | Category) %>% pairs()
+
+
+
+#== Nominal plurality
+
+df_ling_freq %>%
+  ggplot(aes(x = nomPlural, y = mean_freq, fill = nomPlural)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% 
+  group_by(Category, nomPlural) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * nomPlural + (1|language), 
+     data = df_ling_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ nomPlural | Category) %>% pairs()
+
+
+
+#== Pro-drop
+
+df_ling_freq %>%
+  ggplot(aes(x = proDrop, y = mean_freq, fill = proDrop)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% 
+  group_by(Category, proDrop) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * proDrop + (1|language), 
+     data = df_ling_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ proDrop | Category) %>% pairs()
+
+
+
+#== Adjective-noun order
+
+df_ling_freq %>%
+  ggplot(aes(x = orderAdjN, y = mean_freq, fill = orderAdjN)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% 
+  group_by(Category, orderAdjN) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * orderAdjN + (1|language), 
+     data = df_ling_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ orderAdjN | Category) %>% pairs()
+
+
+
+#== Tense marking
+
+df_ling_freq %>%
+  ggplot(aes(x = tense, y = mean_freq, fill = tense)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% subset(tense %in% c("Absent", "PastPresent")) %>% 
+  group_by(Category, tense) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * tense + (1|language), 
+     data = df_ling_freq %>% subset(tense %in% c("Absent", "PastPresent")))
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ tense | Category) %>% pairs()
+
+
+
+#== Verbal person marking
+
+df_ling_freq %>%
+  ggplot(aes(x = vPerson, y = mean_freq, fill = vPerson)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% subset(vPerson %in% c("Absent", "Agent")) %>% 
+  group_by(Category, vPerson) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * vPerson + (1|language), 
+     data = df_ling_freq %>% subset(vPerson %in% c("Absent", "Agent")))
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ vPerson | Category) %>% pairs()
+```
+
+
+
+# Cultural features and frequency (only those that showed significant effects)
+
+```{r}
+df_culture <- read.csv(here("Results", "df_culture.csv"), header=TRUE)
+
+df_cult_freq <- df_culture %>% inner_join(df_freq_z) %>% 
+  pivot_longer(starts_with("freq_mean"), names_sep = "__", 
+               names_to = c("tmp", "Category"), values_to = "mean_freq") %>% 
+  select(-tmp) %>% 
+  mutate(Category = factor(Category, levels =c("Nouns", "Verbs", "Adjectives")))
+
+
+#== Individualism vs. collectivism
+
+df_cult_freq %>%
+  ggplot(aes(x = individualism, y = mean_freq, group = Category)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  guides(fill = "none")
+
+fit <- lmer(mean_freq ~ Category * individualism + (1|language), 
+     data = df_cult_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ individualism | Category, at = list(individualism = c(-1, 1))) %>% pairs()
+
+df_cult_freq %>% group_by(Category) %>%
+  summarise(
+    r = cor(individualism, mean_freq, use = "complete.obs"),
+    p = cor.test(individualism, mean_freq)$p.value)
+```
+
+
+
