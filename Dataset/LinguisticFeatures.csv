@@ -1,0 +1,33 @@
+Seq,language,WS,Family,Family2,wordOrder,tense,article,numCase,posCaseAffix,posNomPlural,nomPlural,proDrop,classifier,orderAdjN,orderAdposN,vPerson,posTenseAspectAffix,supplTenseAspect,compDeg,predicativeAdj
+3,Cantonese,1,Sino-Tibetan,Sino-Tibetan,SVO,Absent,IndefinitePresent,0,Absent,Absent,Absent,Present,Present,Adj-N,NoDominantOrder,Absent,TenseAspectSuffixes,Absent,Absent,Present
+5,Croatian,1,"	Indo-European","	Indo-European",SVO,BothPresent,Absent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Absent,Adj-N,Prepositions,Agent,Absent,Present,Present,Absent
+6,Czech,1,"	Indo-European","	Indo-European",SVO,BothPresent,Absent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Absent,Adj-N,Prepositions,Agent,MixedType,Present,Present,Absent
+7,Danish,1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,0,CaseSuffixes,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Absent,TenseAspectSuffixes,Present,Present,Absent
+8,Dutch,1,"	Indo-European","	Indo-European",NoDominantOrder,PastPresent,BothPresent,0,Absent,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,TenseAspectSuffixes,Present,Present,Absent
+9,English (American),1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,2~4,Absent,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,TenseAspectSuffixes,Present,Present,Absent
+10,English (Australian),1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,2~4,Absent,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,TenseAspectSuffixes,Present,Present,Absent
+11,English (British),1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,2~4,Absent,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,TenseAspectSuffixes,Present,Present,Absent
+12,English (Irish),1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,2~4,Absent,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,TenseAspectSuffixes,Present,Present,Absent
+13,Estonian,1,Uralic,Uralic,SVO,PastPresent,Absent,5~,CaseSuffixes,PluralSuffixes,Present,Absent,Absent,Adj-N,Postpositions,Agent,TenseAspectSuffixes,Absent,Present,Absent
+14,Finnish,1,Uralic,Uralic,SVO,PastPresent,Absent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Absent,Adj-N,Postpositions,Agent,TenseAspectSuffixes,Absent,Present,Absent
+15,French (French),1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,PrepositionalClitics,PluralSuffixes,Present,Absent,Absent,N-Adj,Prepositions,Agent,TenseAspectSuffixes,Present,Absent,Absent
+16,French (Quebecois),1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,PrepositionalClitics,PluralSuffixes,Present,Absent,Absent,N-Adj,Prepositions,Agent,TenseAspectSuffixes,Present,Absent,Absent
+17,German,1,"	Indo-European","	Indo-European",NoDominantOrder,PastPresent,BothPresent,2~4,CaseSuffixes,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,TenseAspectSuffixes,Present,Present,Absent
+19,Hebrew,1,Afro-Asiatic,Other,SVO,BothPresent,BothPresent,0,PrepositionalClitics,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,Agent,MixedType,Present,Absent,Absent
+20,Hungarian,1,Uralic,Uralic,NoDominantOrder,PastPresent,BothPresent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Present,Adj-N,Postpositions,AgentPatient,TenseAspectSuffixes,Present,Present,Absent
+21,Irish,1,"	Indo-European","	Indo-European",VSO,BothPresent,DefinitePresent,2~4,MixedCase,MixedPlural,Present,Present,Absent,N-Adj,Prepositions,Agent,MixedType,Present,Present,Absent
+22,Italian,1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,Absent,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,Agent,TenseAspectSuffixes,Present,Absent,Absent
+23,Japanese,1,Japanese,Other,SOV,PastPresent,IndefinitePresent,5~,PostpositionalClitics,PluralSuffixes,Absent,Present,Present,Adj-N,Postpositions,Absent,TenseAspectSuffixes,Absent,Absent,Present
+25,Kiswahili,1,Atlantic-Congo,Other,SVO,BothPresent,DefinitePresent,0,MixedCase,PluralPrefix,Present,Present,Absent,N-Adj,Prepositions,AgentPatient,TenseAspectPrefixes,Absent,Absent,Present
+26,Korean,1,Korean,Other,SOV,PastPresent,Absent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Present,Adj-N,Postpositions,Absent,TenseAspectSuffixes,Absent,Absent,Present
+27,Latvian,1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Absent,Adj-N,Prepositions,Agent,MixedType,Present,Present,Absent
+28,Mandarin (Beijing),1,Sino-Tibetan,Sino-Tibetan,SVO,Absent,Absent,0,Absent,PluralSuffixes,Absent,Present,Present,Adj-N,NoDominantOrder,Absent,TenseAspectSuffixes,Absent,Absent,Present
+29,Mandarin (Taiwanese),1,Sino-Tibetan,Sino-Tibetan,SVO,Absent,Absent,0,Absent,PluralSuffixes,Absent,Present,Present,Adj-N,NoDominantOrder,Absent,TenseAspectSuffixes,Absent,Absent,Present
+32,Portuguese (European),1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,0,Absent,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,AgentPatient,TenseAspectSuffixes,Present,Absent,Absent
+33,Russian,1,"	Indo-European","	Indo-European",SVO,PastPresent,Absent,5~,CaseSuffixes,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Agent,MixedType,Present,Present,Absent
+35,Spanish (Argentinian),1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,Absent,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,AgentPatient,TenseAspectSuffixes,Present,Absent,Absent
+37,Spanish (European),1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,Absent,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,AgentPatient,TenseAspectSuffixes,Present,Absent,Absent
+38,Spanish (Mexican),1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,Absent,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,AgentPatient,TenseAspectSuffixes,Present,Absent,Absent
+39,Spanish (Peruvian),1,"	Indo-European","	Indo-European",SVO,BothPresent,BothPresent,0,Absent,PluralSuffixes,Present,Present,Absent,N-Adj,Prepositions,AgentPatient,TenseAspectSuffixes,Present,Absent,Absent
+40,Swedish,1,"	Indo-European","	Indo-European",SVO,PastPresent,BothPresent,2~4,Absent,PluralSuffixes,Present,Absent,Absent,Adj-N,Prepositions,Absent,TenseAspectSuffixes,Present,Present,Absent
+41,Turkish,1,Turkic,Other,SOV,BothPresent,IndefinitePresent,5~,CaseSuffixes,PluralSuffixes,Present,Present,Present,Adj-N,Postpositions,Agent,TenseAspectSuffixes,Present,Absent,Present
