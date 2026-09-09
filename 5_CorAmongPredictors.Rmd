@@ -1,0 +1,634 @@
+---
+title: "PlotBiases"
+output: html_document
+date: "2026-01-20"
+---
+
+
+```{r}
+library(here)
+library(tidyverse)
+library(tidytext)
+library(ggrepel)
+library(car)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(GGally)
+```
+
+
+# Preparation
+
+```{r}
+bias_raw <- readr::read_csv(here("Dataset", "bias_WS_Ref_TotalVocab_2026Jul15.csv"), show_col_types = FALSE)
+feat_raw <- readr::read_csv(here("Dataset", "LinguisticFeatures.csv"), show_col_types = FALSE)
+
+bias <- bias_raw %>% mutate(
+  language = str_squish(language),
+  form     = str_squish(form),
+  lexical_class = str_squish(lexical_class),
+  measure  = str_squish(measure))
+feat <- feat_raw %>% mutate(language = str_squish(language))
+
+bias_ws <- bias %>% filter(form == "WS") %>%
+  inner_join(feat, by = "language") %>% 
+  subset(lexical_class != "Function Words")
+
+# Check
+bias_ws %>% count(lexical_class, measure) %>%
+  arrange(desc(n)) %>%
+  print(n = Inf)
+
+bias_ws %>% count(language, lexical_class) %>%
+  filter(n > 1)
+```
+
+
+
+# Linguistic features and frequency (only those that showed significant effects)
+
+```{r}
+df_freq_z <- read.csv(here("Results", "df_freq_z.csv"), header=TRUE)
+df_freq_z <- df_freq_z %>% select(language, starts_with("freq_mean"))
+
+bias_ws <- bias_ws %>% select(-order, -lexical_class, -mean, -ci_lower, -ci_upper) %>% inner_join(df_freq_z) %>% 
+  distinct()
+
+df_ling_freq <- bias_ws %>% 
+  pivot_longer(starts_with("freq_mean"), names_sep = "__", 
+               names_to = c("tmp", "Category"), values_to = "mean_freq") %>% 
+  select(-tmp) %>% 
+  mutate(Category = factor(Category, levels =c("Nouns", "Verbs", "Adjectives")))
+
+
+#== Case position
+
+df_ling_freq %>%
+  ggplot(aes(x = posCaseAffix, y = mean_freq, fill = posCaseAffix)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% subset(posCaseAffix %in% c("Absent", "CaseSuffixes")) %>% 
+  group_by(Category, posCaseAffix) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * posCaseAffix + (1|language), 
+     data = df_ling_freq %>% subset(posCaseAffix %in% c("Absent", "CaseSuffixes")))
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ posCaseAffix | Category) %>% pairs()
+
+
+
+#== Nominal plurality
+
+df_ling_freq %>%
+  ggplot(aes(x = nomPlural, y = mean_freq, fill = nomPlural)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% 
+  group_by(Category, nomPlural) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * nomPlural + (1|language), 
+     data = df_ling_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ nomPlural | Category) %>% pairs()
+
+
+
+#== Pro-drop
+
+df_ling_freq %>%
+  ggplot(aes(x = proDrop, y = mean_freq, fill = proDrop)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% 
+  group_by(Category, proDrop) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * proDrop + (1|language), 
+     data = df_ling_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ proDrop | Category) %>% pairs()
+
+
+
+#== Adjective-noun order
+
+df_ling_freq %>%
+  ggplot(aes(x = orderAdjN, y = mean_freq, fill = orderAdjN)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% 
+  group_by(Category, orderAdjN) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * orderAdjN + (1|language), 
+     data = df_ling_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ orderAdjN | Category) %>% pairs()
+
+
+
+#== Tense marking
+
+df_ling_freq %>%
+  ggplot(aes(x = tense, y = mean_freq, fill = tense)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% subset(tense %in% c("Absent", "PastPresent")) %>% 
+  group_by(Category, tense) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * tense + (1|language), 
+     data = df_ling_freq %>% subset(tense %in% c("Absent", "PastPresent")))
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ tense | Category) %>% pairs()
+
+
+
+#== Verbal person marking
+
+df_ling_freq %>%
+  ggplot(aes(x = vPerson, y = mean_freq, fill = vPerson)) +
+  # geom_violin(alpha = 0.4) +
+  geom_point() +
+  geom_boxplot(fill="white", alpha=0.6) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+
+  guides(fill = "none")
+
+df_ling_freq %>% subset(vPerson %in% c("Absent", "Agent")) %>% 
+  group_by(Category, vPerson) %>% 
+  summarise(N.lang = n(), mean_mean_freq = mean(mean_freq), sd_mean_freq = sd(mean_freq))
+
+fit <- lmer(mean_freq ~ Category * vPerson + (1|language), 
+     data = df_ling_freq %>% subset(vPerson %in% c("Absent", "Agent")))
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ vPerson | Category) %>% pairs()
+```
+
+
+
+# Cultural features and frequency (only those that showed significant effects)
+
+```{r}
+df_culture <- read.csv(here("Results", "df_culture.csv"), header=TRUE)
+
+df_cult_freq <- df_culture %>% inner_join(df_freq_z) %>% 
+  pivot_longer(starts_with("freq_mean"), names_sep = "__", 
+               names_to = c("tmp", "Category"), values_to = "mean_freq") %>% 
+  select(-tmp) %>% 
+  mutate(Category = factor(Category, levels =c("Nouns", "Verbs", "Adjectives")))
+
+
+#== Individualism vs. collectivism
+
+df_cult_freq %>%
+  ggplot(aes(x = individualism, y = mean_freq, group = Category)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.8) +
+  facet_wrap(~Category, scales = "free") +
+  theme_bw() +
+  guides(fill = "none")
+
+fit <- lmer(mean_freq ~ Category * individualism + (1|language), 
+     data = df_cult_freq)
+# summary(fit)
+Anova(fit)
+emmeans(fit, ~ individualism | Category, at = list(individualism = c(-1, 1))) %>% pairs()
+
+df_cult_freq %>% group_by(Category) %>%
+  summarise(
+    r = cor(individualism, mean_freq, use = "complete.obs"),
+    p = cor.test(individualism, mean_freq)$p.value)
+```
+
+
+
+# Relations among predictors
+
+```{r}
+d_typo <- read.csv(here("Results", "typo_mca.csv"), header=TRUE) %>% select(-matches("_z"))
+d_freq <- read.csv(here("Results", "df_freq.csv"), header=TRUE) %>% 
+  distinct(language, lexical_category, freq_mean, predicativeAdj) %>% 
+  filter(!is.na(predicativeAdj)) %>% select(-predicativeAdj) %>% 
+  pivot_wider(names_from = lexical_category, values_from = freq_mean, names_prefix = "freq_")
+d_cult <- read.csv(here("Results", "df_culture.csv"), header=TRUE) %>% 
+  distinct(language, individualism, flexibility) 
+
+d_all <- bias_raw %>% select(language, lexical_class, mean, ci_lower, ci_upper) %>% 
+  inner_join(d_typo) %>% inner_join(d_freq) %>% inner_join(d_cult) %>% 
+  rename(bias = mean) %>% 
+  mutate(Noun.Dim1 = as.numeric(scale(Noun.Dim1)),
+         Noun.Dim2 = as.numeric(scale(Noun.Dim2)),
+         Noun.Dim3 = as.numeric(scale(Noun.Dim3)),
+         Verb.Dim1 = as.numeric(scale(Verb.Dim1)),
+         Verb.Dim2 = as.numeric(scale(Verb.Dim2)),
+         Verb.Dim3 = as.numeric(scale(Verb.Dim3)),
+         Adj.Dim1  = as.numeric(scale(Adj.Dim1)),
+         Adj.Dim2  = as.numeric(scale(Adj.Dim2)),
+         Adj.Dim3  = as.numeric(scale(Adj.Dim3)),
+         freq_Nouns      = as.numeric(scale(freq_Nouns)),
+         freq_Verbs      = as.numeric(scale(freq_Verbs)),
+         freq_Adjectives = as.numeric(scale(freq_Adjectives)),
+         individualism = as.numeric(scale(individualism)),
+         flexibility = as.numeric(scale(flexibility)))
+
+d_all %>% select(Noun.Dim1:flexibility) %>% 
+  summarise(across(Noun.Dim1:flexibility, 
+                   list(mean = \(x) mean(x, na.rm = TRUE), 
+                        sd   = \(x) sd(x, na.rm = TRUE)),
+                   .names = "{.col}__{.fn}")) %>% 
+  pivot_longer(cols = everything(), names_to = c("Variable", ".value"), names_sep = "__")
+
+d_noun <- d_all %>% filter(lexical_class == "Nouns")
+d_verb <- d_all %>% filter(lexical_class == "Verbs")
+d_adj  <- d_all %>% filter(lexical_class == "Adjectives")
+```
+
+
+## Noun bias
+
+```{r}
+# full model
+m_full <- lm(bias ~ 
+            Noun.Dim1 + Noun.Dim2 + Noun.Dim3 + 
+            freq_Nouns + freq_Verbs + freq_Adjectives +
+            individualism + flexibility , data = d_noun)
+summary(m_full)
+vif(m_full)
+
+
+# Remove typology block
+m_no_typo <- lm(bias ~
+              freq_Nouns + freq_Verbs + freq_Adjectives +
+              individualism + flexibility, data = d_noun)
+
+# Remove frequency block
+m_no_freq <- lm(bias ~
+              Noun.Dim1 + Noun.Dim2 + Noun.Dim3 +
+              individualism + flexibility, data = d_noun)
+
+# Remove culture block
+m_no_cult <- lm(bias ~
+              Noun.Dim1 + Noun.Dim2 + Noun.Dim3 +
+              freq_Nouns + freq_Verbs + freq_Adjectives, data = d_noun)
+```
+
+
+```{r}
+# Blockwise F-tests
+anova(m_no_typo, m_full)
+anova(m_no_freq, m_full)
+anova(m_no_cult, m_full)
+
+
+# Partial R^2
+partial_r2 <- function(reduced, full) {
+  sse_reduced <- deviance(reduced)
+  sse_full    <- deviance(full)
+  (sse_reduced - sse_full) / sse_reduced
+}
+
+# Save blockwise results
+get_block_result <- function(reduced, full, block) {
+  a <- anova(reduced, full)
+  
+  tibble(block = block,
+         df1 = a$Df[2],
+         df2 = df.residual(full),
+         F = a$F[2],
+         p = a$`Pr(>F)`[2],
+         partial_R2 = partial_r2(reduced, full))
+}
+
+res_noun <- bind_rows(get_block_result(m_no_typo, m_full, "Typology"),
+                      get_block_result(m_no_freq, m_full, "Frequency"),
+                      get_block_result(m_no_cult, m_full, "Culture")) %>%
+  mutate(bias = "Noun")
+res_noun
+
+# confirmation of sample consistency
+# nobs(m_full)
+# nobs(m_no_typo)
+# nobs(m_no_freq)
+# nobs(m_no_cult)
+```
+
+
+```{r}
+# LOOCV prediction (if interested)
+d_cv <- model.frame(m_full)
+
+loocv_pred <- function(model, data) {
+  n <- nrow(data)
+  pred <- rep(NA_real_, n)
+  
+  for (i in seq_len(n)) {
+    fit_i <- lm(formula(model), data = data[-i, , drop = FALSE])
+    pred[i] <- predict(fit_i, newdata = data[i, , drop = FALSE])
+  }
+  
+  tibble(obs = data$bias,
+         pred = pred,
+         sq_error = (obs - pred)^2,
+         abs_error = abs(obs - pred))
+}
+
+cv_metrics <- function(x) {
+  tibble(
+    RMSE = sqrt(mean(x$sq_error)),
+    MAE = mean(x$abs_error),
+    CV_R2 = 1 - sum(x$sq_error) /
+      sum((x$obs - mean(x$obs))^2))
+}
+
+cv_full <- loocv_pred(m_full, d_cv)
+cv_no_typo <- loocv_pred(m_no_typo, d_cv)
+cv_no_freq <- loocv_pred(m_no_freq, d_cv)
+cv_no_cult <- loocv_pred(m_no_cult, d_cv)
+
+cv_summary <- bind_rows(cv_metrics(cv_full) %>% mutate(model = "Full"),
+                        cv_metrics(cv_no_typo) %>% mutate(model = "No typology"),
+                        cv_metrics(cv_no_freq) %>% mutate(model = "No frequency"),
+                        cv_metrics(cv_no_cult) %>% mutate(model = "No culture")) %>%
+  select(model, everything())
+cv_summary
+
+cv_summary %>% filter(model != "Full") %>%
+  mutate(block = dplyr::recode(model,
+      "No typology" = "Typology",
+      "No frequency" = "Frequency",
+      "No culture" = "Culture"),
+    RMSE_change_when_removed = RMSE - cv_summary$RMSE[cv_summary$model == "Full"],
+    CV_R2_change_when_removed = CV_R2 - cv_summary$CV_R2[cv_summary$model == "Full"]) 
+```
+
+
+
+## Verb bias
+
+```{r}
+# full model
+m_full <- lm(bias ~ 
+            Verb.Dim1 + Verb.Dim2 + Verb.Dim3 + 
+            freq_Nouns + freq_Verbs + freq_Adjectives +
+            individualism + flexibility , data = d_verb)
+summary(m_full)
+vif(m_full)
+
+
+# Remove typology block
+m_no_typo <- lm(bias ~
+              freq_Nouns + freq_Verbs + freq_Adjectives +
+              individualism + flexibility, data = d_verb)
+
+# Remove frequency block
+m_no_freq <- lm(bias ~
+              Verb.Dim1 + Verb.Dim2 + Verb.Dim3 + 
+              individualism + flexibility, data = d_verb)
+
+# Remove culture block
+m_no_cult <- lm(bias ~
+              Verb.Dim1 + Verb.Dim2 + Verb.Dim3 + 
+              freq_Nouns + freq_Verbs + freq_Adjectives, data = d_verb)
+```
+
+
+```{r}
+# Blockwise F-tests
+anova(m_no_typo, m_full)
+anova(m_no_freq, m_full)
+anova(m_no_cult, m_full)
+
+
+# Partial R^2
+partial_r2 <- function(reduced, full) {
+  sse_reduced <- deviance(reduced)
+  sse_full    <- deviance(full)
+  (sse_reduced - sse_full) / sse_reduced
+}
+
+res_verb <- bind_rows(get_block_result(m_no_typo, m_full, "Typology"),
+                      get_block_result(m_no_freq, m_full, "Frequency"),
+                      get_block_result(m_no_cult, m_full, "Culture")) %>%
+  mutate(bias = "Verb")
+res_verb
+
+
+# confirmation of sample consistency
+# nobs(m_full)
+# nobs(m_no_typo)
+# nobs(m_no_freq)
+# nobs(m_no_cult)
+```
+
+
+```{r}
+# LOOCV prediction (if interested)
+d_cv <- model.frame(m_full)
+
+cv_full <- loocv_pred(m_full, d_cv)
+cv_no_typo <- loocv_pred(m_no_typo, d_cv)
+cv_no_freq <- loocv_pred(m_no_freq, d_cv)
+cv_no_cult <- loocv_pred(m_no_cult, d_cv)
+
+cv_summary <- bind_rows(cv_metrics(cv_full) %>% mutate(model = "Full"),
+                        cv_metrics(cv_no_typo) %>% mutate(model = "No typology"),
+                        cv_metrics(cv_no_freq) %>% mutate(model = "No frequency"),
+                        cv_metrics(cv_no_cult) %>% mutate(model = "No culture")) %>%
+  select(model, everything())
+cv_summary
+
+cv_summary %>% filter(model != "Full") %>%
+  mutate(block = dplyr::recode(model,
+      "No typology" = "Typology",
+      "No frequency" = "Frequency",
+      "No culture" = "Culture"),
+    RMSE_change_when_removed = RMSE - cv_summary$RMSE[cv_summary$model == "Full"],
+    CV_R2_change_when_removed = CV_R2 - cv_summary$CV_R2[cv_summary$model == "Full"]) 
+```
+
+
+## Adjective bias
+
+```{r}
+# full model
+m_full <- lm(bias ~ 
+            Adj.Dim1 + Adj.Dim2 + Adj.Dim3 + 
+            freq_Nouns + freq_Verbs + freq_Adjectives +
+            individualism + flexibility , data = d_adj)
+summary(m_full)
+vif(m_full)
+
+
+# Remove typology block
+m_no_typo <- lm(bias ~
+              freq_Nouns + freq_Verbs + freq_Adjectives +
+              individualism + flexibility, data = d_adj)
+
+# Remove frequency block
+m_no_freq <- lm(bias ~
+              Adj.Dim1 + Adj.Dim2 + Adj.Dim3 + 
+              individualism + flexibility, data = d_adj)
+
+# Remove culture block
+m_no_cult <- lm(bias ~
+              Adj.Dim1 + Adj.Dim2 + Adj.Dim3 + 
+              freq_Nouns + freq_Verbs + freq_Adjectives, data = d_adj)
+```
+
+
+```{r}
+# Blockwise F-tests
+anova(m_no_typo, m_full)
+anova(m_no_freq, m_full)
+anova(m_no_cult, m_full)
+
+
+# Partial R^2
+partial_r2 <- function(reduced, full) {
+  sse_reduced <- deviance(reduced)
+  sse_full    <- deviance(full)
+  (sse_reduced - sse_full) / sse_reduced
+}
+
+res_adj <- bind_rows(get_block_result(m_no_typo, m_full, "Typology"),
+                     get_block_result(m_no_freq, m_full, "Frequency"),
+                     get_block_result(m_no_cult, m_full, "Culture")) %>%
+  mutate(bias = "Adjective")
+res_adj
+
+
+# confirmation of sample consistency
+# nobs(m_full)
+# nobs(m_no_typo)
+# nobs(m_no_freq)
+# nobs(m_no_cult)
+```
+
+
+```{r}
+# LOOCV prediction (if interested)
+d_cv <- model.frame(m_full)
+
+cv_full <- loocv_pred(m_full, d_cv)
+cv_no_typo <- loocv_pred(m_no_typo, d_cv)
+cv_no_freq <- loocv_pred(m_no_freq, d_cv)
+cv_no_cult <- loocv_pred(m_no_cult, d_cv)
+
+cv_summary <- bind_rows(cv_metrics(cv_full) %>% mutate(model = "Full"),
+                        cv_metrics(cv_no_typo) %>% mutate(model = "No typology"),
+                        cv_metrics(cv_no_freq) %>% mutate(model = "No frequency"),
+                        cv_metrics(cv_no_cult) %>% mutate(model = "No culture")) %>%
+  select(model, everything())
+cv_summary
+
+cv_summary %>% filter(model != "Full") %>%
+  mutate(block = dplyr::recode(model,
+      "No typology" = "Typology",
+      "No frequency" = "Frequency",
+      "No culture" = "Culture"),
+    RMSE_change_when_removed = RMSE - cv_summary$RMSE[cv_summary$model == "Full"],
+    CV_R2_change_when_removed = CV_R2 - cv_summary$CV_R2[cv_summary$model == "Full"]) 
+
+
+# cv_check
+tibble(language = d_adj$language,
+       obs = cv_full$obs,
+       pred_full = cv_full$pred,
+       pred_no_cult = cv_no_cult$pred,
+       error_full = abs(cv_full$obs - cv_full$pred),
+       error_no_cult = abs(cv_no_cult$obs - cv_no_cult$pred),
+       error_increase = error_no_cult - error_full,
+       # sq_error_full = cv_full$sq_error,
+       # sq_error_no_cult = cv_no_cult$sq_error,
+       # increase = sq_error_no_cult - sq_error_full
+  ) %>% arrange(desc(error_increase)) %>% print(n=31)
+```
+
+
+## Visualization
+
+```{r}
+res_all <- bind_rows(res_noun, res_verb, res_adj) %>%
+  mutate(bias = factor(bias, levels = c("Noun", "Verb", "Adjective")),
+         block = factor(block, levels = c("Typology", "Frequency", "Culture")),
+         sig = case_when(p < .001 ~ "***", p < .01 ~ "**", p < .05 ~ "*", p < .10 ~ "+",
+                         TRUE ~ ""),
+         label = sub("^0", "", sprintf("%.2f", partial_R2)))
+res_all
+
+
+bias_cols <- c("Noun bias" = "#2C7BB6", "Verb bias" = "#1A9850", "Adjective bias" = "#D95F02")
+
+res_plot <- res_all %>%
+  mutate(bias_type = dplyr::recode(bias,
+                                   "Noun" = "Noun bias",
+                                   "Verb" = "Verb bias",
+                                   "Adjective" = "Adjective bias"),
+    bias_type = factor(bias_type, levels = c("Adjective bias", "Verb bias", "Noun bias")),
+    block = factor(block, levels = c("Typology", "Frequency", "Culture")),
+    label = sub("^0", "", sprintf("%.2f", partial_R2)))
+
+ggplot(res_plot, aes(x = block, y = bias_type, size = partial_R2, fill = bias_type)) +
+  geom_point(shape = 21, color = "gray80", stroke = 0.5, alpha = 0.8) +
+  geom_text(aes(label = label), size = 3.4, color = "white") + 
+  scale_fill_manual(values = bias_cols) +
+  scale_size_area(max_size = 18, limits = c(0, .55)) +
+  labs(x = "Predictor domain", y = NULL) +
+  guides(fill = "none", size = "none") +
+  theme_bw() +
+  theme(
+    panel.grid.major.y = element_line(linewidth = 0.15, color = "grey85"),
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_line(linewidth = 0.25, color = "grey87"),
+    panel.grid.minor.x = element_blank(),
+    axis.text.y = element_text(size = 10, color = "gray15",
+                               lineheight = 0.92, margin = margin(r = 1)),
+    axis.text.x = element_text(size = 10, color = "gray15"),
+    axis.ticks = element_blank(),
+    axis.title.y = element_blank(),
+    axis.title.x = element_text(size = 10, color = "gray15"),
+    plot.margin = margin(4, 4, 2, 4))
+ggsave(here("Figures", "preds_balance.png"), width = 4, height = 2.4, dpi = 320, bg = "white")
+```
+

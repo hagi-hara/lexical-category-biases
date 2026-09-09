@@ -1,0 +1,123 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+# Example: English & Japanese: item AoA
+
+```{r}
+library(wordbankr)
+library(tidyverse)
+
+eng_ws <- get_instrument_data(language="English (American)", form="WS", 
+                              administration_info=TRUE, item_info=TRUE, include_demographic_info=TRUE) %>% 
+  subset(item_kind=="word") %>% 
+  mutate(downloaded=Sys.Date()) %>% # 2024-05-17
+  select(downloaded, data_id, item_kind, category, item_id, item_definition, english_gloss, uni_lemma, child_id, age, sex, value, produces, understands) %>% 
+  mutate(value=case_when(value=="understands"~"", TRUE~value)) %>% 
+  arrange(data_id)
+
+eng_wg <- get_instrument_data(language="English (American)", form="WG", 
+                              administration_info=TRUE, item_info=TRUE, include_demographic_info=TRUE) %>% 
+  subset(item_kind=="word") %>% 
+  mutate(downloaded=Sys.Date()) %>% # 2024-05-17
+  select(downloaded, data_id, item_kind, category, item_id, item_definition, english_gloss, uni_lemma, child_id, age, sex, value, produces, understands) %>% 
+  mutate(value=case_when(value=="understands"~"", TRUE~value)) %>% 
+  arrange(data_id)
+
+jpn_ws <- get_instrument_data(language="Japanese", form="WS", 
+                              administration_info=TRUE, item_info=TRUE, include_demographic_info=TRUE) %>% 
+  subset(item_kind=="word") %>% 
+  mutate(downloaded=Sys.Date()) %>% # 2024-05-17
+  select(downloaded, data_id, item_kind, category, item_id, item_definition, english_gloss, uni_lemma, child_id, age, sex, value, produces, understands) %>% 
+  mutate(value=case_when(value=="understands"~"", TRUE~value)) %>% 
+  arrange(data_id)
+
+jpn_wg <- get_instrument_data(language="Japanese", form="WG", 
+                              administration_info=TRUE, item_info=TRUE, include_demographic_info=TRUE) %>% 
+  subset(item_kind=="word") %>% 
+  mutate(downloaded=Sys.Date()) %>% # 2024-05-17
+  select(downloaded, data_id, item_kind, category, item_id, item_definition, english_gloss, uni_lemma, child_id, age, sex, value, produces, understands) %>% 
+  mutate(value=case_when(value=="understands"~"", TRUE~value)) %>% 
+  arrange(data_id)
+```
+
+
+```{r}
+# Calculate Age of Acquisition (AoA)
+eng_ws_aoa <- fit_aoa(eng_ws, measure="produces", method="glm", proportion=0.5)
+eng_wg_aoa <- fit_aoa(eng_wg, measure="produces", method="glm", proportion=0.5)
+jpn_ws_aoa <- fit_aoa(jpn_ws, measure="produces", method="glm", proportion=0.5)
+jpn_wg_aoa <- fit_aoa(jpn_wg, measure="produces", method="glm", proportion=0.5)
+
+
+# Integrate data
+eng_aoa <- eng_ws_aoa %>% left_join(eng_wg_aoa %>% select(item_definition, aoa), by="item_definition") %>% 
+  mutate(cat.x=!is.na(aoa.x), cat.y=!is.na(aoa.y),
+         cat=case_when(cat.x==TRUE & cat.y==TRUE ~ "both", cat.x==TRUE & cat.y==FALSE ~ "x", cat.x==FALSE & cat.y==TRUE ~ "y", TRUE ~ "none"),
+         AoA=case_when(cat=="both" ~ (aoa.x+aoa.y)/2, cat=="x" ~ aoa.x, cat=="y" ~ aoa.y, TRUE ~ NA)) %>% 
+  select(-cat.x, -cat.y, -cat, -aoa.x, -aoa.y)
+
+jpn_aoa <- jpn_ws_aoa %>% left_join(jpn_wg_aoa %>% select(item_definition, aoa), by="item_definition") %>% 
+  mutate(cat.x=!is.na(aoa.x), cat.y=!is.na(aoa.y),
+         cat=case_when(cat.x==TRUE & cat.y==TRUE ~ "both", cat.x==TRUE & cat.y==FALSE ~ "x", cat.x==FALSE & cat.y==TRUE ~ "y", TRUE ~ "none"),
+         AoA=case_when(cat=="both" ~ (aoa.x+aoa.y)/2, cat=="x" ~ aoa.x, cat=="y" ~ aoa.y, TRUE ~ NA)) %>% 
+  select(-cat.x, -cat.y, -cat, -aoa.x, -aoa.y)
+```
+
+
+```{r}
+# Creating a function
+fit_aoa2 <- function(data, prop=0.5, age_min=min(data$age), age_max=max(data$age)) {
+  # Prepare a daraframe for the final output
+  final <- data.frame()
+  final %>% rownames(c("item_id_num", "AoA"))
+  
+  dataall <- data %>% separate(col=item_id, into=c("item", "item_id_num"), sep="_", remove=FALSE) %>% 
+    mutate(item_id_num=as.numeric(item_id_num)) 
+  
+  dataset <- dataall %>% group_by(item_id_num, age) %>% 
+    summarize(N.data = n(), N.produces = sum(value=="produces", na.rm=TRUE)) %>% 
+    arrange(item_id_num) %>% ungroup()
+  
+  id <- dataset$item_id_num %>% unique()
+  
+  for(i in id){
+    tmp <- dataset %>% subset(item_id_num==i)
+    agerange <- paste("age[", age_min, ":", age_max, "]", sep="")
+    pred <- ggpredict(glm(cbind(N.produces, N.data-N.produces)~age, data=tmp, family=binomial), terms=agerange, type="fixed") %>% 
+      as.data.frame() %>% subset(predicted>=prop)
+    if(nrow(pred)==0){
+      final <- final %>% rbind(data.frame(item_id_num=i, AoA=NA))
+    } else{
+      final <- final %>% rbind(data.frame(item_id_num=i, AoA=min(pred$x)))
+    }
+  }
+  
+  return(
+    dataall %>% select(downloaded, item_kind, category, item_id, item_id_num, item_definition, english_gloss, uni_lemma) %>% unique() %>% 
+      left_join(final, by="item_id_num") %>% arrange(item_id_num))
+}
+
+eng_ws_aoa2 <- fit_aoa2(eng_ws)
+jpn_ws_aoa2 <- fit_aoa2(jpn_ws, prop=0.5, age_min=10)
+
+write.csv(eng_ws_aoa2, file="Data_wordfeatures/AoA/English_WS_AoA_20240518.csv", row.names=FALSE)
+write.csv(jpn_ws_aoa2, file="Data/Japanese_WS_AoA_20240518.csv", row.names=FALSE)
+```
+
+
+
+# Adjective AoA
+```{r}
+eng_ws_aoa2 <- read_csv("Data/English_WS_AoA_20240518.csv")
+jpn_ws_aoa2 <- read_csv("Data/Japanese_WS_AoA_20240518.csv")
+
+eng_ws_adj <- eng_ws_aoa2 %>% filter(category=="descriptive_words") %>% arrange(AoA)
+jpn_ws_adj <- jpn_ws_aoa2 %>% filter(category=="descriptive_words") %>% arrange(AoA)
+
+
+```
+
