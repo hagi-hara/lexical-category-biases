@@ -1,0 +1,94 @@
+"language","lexical_class","bias","predicativeAdj","individualism","flexibility"
+"Finnish","Adjectives",-0.120571836966844,"Absent",88,71
+"Hebrew","Adjectives",-0.10604451132331,"Absent",16,2
+"Spanish (Mexican)","Adjectives",-0.101694352339337,"Absent",-63,-104
+"Russian","Adjectives",-0.0901631956558263,"Absent",-21,48
+"English (British)","Adjectives",-0.0899382126003255,"Absent",93,56
+"Swedish","Adjectives",-0.0886839608898051,"Absent",133,21
+"Kiswahili","Adjectives",-0.0844631886998392,"Present",-177,-158
+"English (Australian)","Adjectives",-0.0828827452507749,"Absent",83,41
+"Estonian","Adjectives",-0.082028852549103,"Absent",39,108
+"Turkish","Adjectives",-0.0781512111783842,"Present",-18,-52
+"Italian","Adjectives",-0.0712044774864728,"Absent",5,-36
+"German","Adjectives",-0.0706828795117543,"Absent",102,46
+"Hungarian","Adjectives",-0.0646486244911543,"Absent",72,-9
+"Czech","Adjectives",-0.0605469212851984,"Absent",70,17
+"Spanish (Argentinian)","Adjectives",-0.0603048405314823,"Absent",0,-80
+"Portuguese (European)","Adjectives",-0.0552220187856169,"Absent",30,-24
+"Mandarin (Taiwanese)","Adjectives",-0.0548724598929671,"Present",-43,175
+"English (Irish)","Adjectives",-0.054272028503324,"Absent",27,17
+"Danish","Adjectives",-0.0508391975216544,"Absent",140,51
+"Korean","Adjectives",-0.0499489351264666,"Present",25,174
+"Croatian","Adjectives",-0.0450933992231063,"Absent",-33,-32
+"Dutch","Adjectives",-0.0420600910036059,"Absent",182,87
+"Spanish (Peruvian)","Adjectives",-0.0376687588629216,"Absent",-117,-187
+"English (American)","Adjectives",-0.0280841168426573,"Absent",33,11
+"French (French)","Adjectives",-0.025902244071473,"Absent",86,57
+"Cantonese","Adjectives",-0.0126479139251908,"Present",-5,199
+"French (Quebecois)","Adjectives",-0.0060748978229099,"Absent",78,31
+"Spanish (European)","Adjectives",0.00128527370762431,"Absent",58,2
+"Japanese","Adjectives",0.00731098964703709,"Present",42,234
+"Irish","Adjectives",0.00965014854337705,"Absent",27,17
+"Mandarin (Beijing)","Adjectives",0.0368769916234872,"Present",-31,134
+"Kiswahili","Nouns",-0.00078134745051714,"Present",-177,-158
+"Mandarin (Beijing)","Nouns",0.00552989592300389,"Present",-31,134
+"Cantonese","Nouns",0.0122108006261387,"Present",-5,199
+"Spanish (Peruvian)","Nouns",0.0166174654562278,"Absent",-117,-187
+"Mandarin (Taiwanese)","Nouns",0.0193605077442282,"Present",-43,175
+"Turkish","Nouns",0.0315651373234546,"Present",-18,-52
+"Japanese","Nouns",0.0346859979793724,"Present",42,234
+"Portuguese (European)","Nouns",0.0348832587194788,"Absent",30,-24
+"Irish","Nouns",0.0373999852076446,"Absent",27,17
+"Estonian","Nouns",0.0375833046006428,"Absent",39,108
+"English (Australian)","Nouns",0.0392274436609586,"Absent",83,41
+"French (French)","Nouns",0.0397036632704525,"Absent",86,57
+"Spanish (Mexican)","Nouns",0.0416912403752672,"Absent",-63,-104
+"Spanish (Argentinian)","Nouns",0.0431203050115823,"Absent",0,-80
+"Spanish (European)","Nouns",0.0459821470960932,"Absent",58,2
+"Czech","Nouns",0.0496705383856784,"Absent",70,17
+"Hebrew","Nouns",0.0498647385068885,"Absent",16,2
+"English (Irish)","Nouns",0.0523819525429496,"Absent",27,17
+"Russian","Nouns",0.053668147018537,"Absent",-21,48
+"French (Quebecois)","Nouns",0.0543307375217393,"Absent",78,31
+"Swedish","Nouns",0.054426964906185,"Absent",133,21
+"Italian","Nouns",0.0573149893952934,"Absent",5,-36
+"English (American)","Nouns",0.0651637356103651,"Absent",33,11
+"Hungarian","Nouns",0.0651771821387382,"Absent",72,-9
+"Dutch","Nouns",0.0677050076362048,"Absent",182,87
+"Finnish","Nouns",0.0677324282910673,"Absent",88,71
+"Croatian","Nouns",0.067804814997473,"Absent",-33,-32
+"English (British)","Nouns",0.0693038562030935,"Absent",93,56
+"Danish","Nouns",0.0756074229128952,"Absent",140,51
+"Korean","Nouns",0.0886265329112329,"Present",25,174
+"German","Nouns",0.0908382033883683,"Absent",102,46
+"Korean","Verbs",-0.0854228798726739,"Present",25,174
+"English (British)","Verbs",-0.0779420930050561,"Absent",93,56
+"Hebrew","Verbs",-0.0724958770068047,"Absent",16,2
+"English (Australian)","Verbs",-0.0574184218456924,"Absent",83,41
+"German","Verbs",-0.0470467350379388,"Absent",102,46
+"Italian","Verbs",-0.0359233682662509,"Absent",5,-36
+"French (Quebecois)","Verbs",-0.0348414615897026,"Absent",78,31
+"Hungarian","Verbs",-0.031079139019316,"Absent",72,-9
+"Finnish","Verbs",-0.0221506604318001,"Absent",88,71
+"Dutch","Verbs",-0.0114109726999762,"Absent",182,87
+"English (American)","Verbs",-0.0101071235349759,"Absent",33,11
+"French (French)","Verbs",-0.00970787455929337,"Absent",86,57
+"Czech","Verbs",-0.00937768853463792,"Absent",70,17
+"Estonian","Verbs",-0.00774387073121439,"Absent",39,108
+"Spanish (Mexican)","Verbs",-0.00504181768086331,"Absent",-63,-104
+"Portuguese (European)","Verbs",-0.00392222927189841,"Absent",30,-24
+"Danish","Verbs",-0.00366428867082173,"Absent",140,51
+"Japanese","Verbs",-0.00326695093388037,"Present",42,234
+"Irish","Verbs",0.00355896073320735,"Absent",27,17
+"Spanish (European)","Verbs",0.00379369389919081,"Absent",58,2
+"Spanish (Peruvian)","Verbs",0.00680544407852326,"Absent",-117,-187
+"Spanish (Argentinian)","Verbs",0.00721485384158305,"Absent",0,-80
+"English (Irish)","Verbs",0.0115539799295027,"Absent",27,17
+"Croatian","Verbs",0.0131425418193201,"Absent",-33,-32
+"Russian","Verbs",0.0139228305335873,"Absent",-21,48
+"Turkish","Verbs",0.034856580398172,"Present",-18,-52
+"Swedish","Verbs",0.0373607094092216,"Absent",133,21
+"Mandarin (Taiwanese)","Verbs",0.0475584108421081,"Present",-43,175
+"Cantonese","Verbs",0.0603410810101193,"Present",-5,199
+"Kiswahili","Verbs",0.0693862582548441,"Present",-177,-158
+"Mandarin (Beijing)","Verbs",0.0800587215762563,"Present",-31,134
